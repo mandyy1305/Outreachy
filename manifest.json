@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "RemoteStar Outreach Assistant",
+  "version": "0.1.0",
+  "description": "Generate personalized LinkedIn outreach messages for RemoteStar from the profile you're viewing.",
+  "permissions": ["storage", "activeTab", "scripting", "sidePanel"],
+  "host_permissions": [
+    "https://www.linkedin.com/*",
+    "https://api.openai.com/*",
+    "https://api.anthropic.com/*"
+  ],
+  "background": {
+    "service_worker": "src/background/service-worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "RemoteStar Outreach"
+  },
+  "side_panel": {
+    "default_path": "src/sidepanel/sidepanel.html"
+  },
+  "options_page": "src/options/options.html",
+  "icons": {
+    "16": "assets/icon16.png",
+    "48": "assets/icon48.png",
+    "128": "assets/icon128.png"
+  }
+}

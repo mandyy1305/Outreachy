@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RemoteStar Outreach — Settings</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main>
+      <h1>RemoteStar Outreach — Settings</h1>
+
+      <label class="field">
+        <span class="field-label">Provider</span>
+        <select id="provider">
+          <option value="openai">OpenAI</option>
+          <option value="anthropic">Anthropic (Claude)</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span class="field-label" id="apiKeyLabel">OpenAI API key</span>
+        <input id="apiKey" type="password" placeholder="sk-…" autocomplete="off" />
+        <span class="hint" id="apiKeyHint">Stored locally on this device (chrome.storage.local), in plaintext. Never synced; sent only to the selected provider. Each provider's key is stored separately.</span>
+      </label>
+
+      <label class="field">
+        <span class="field-label">Model</span>
+        <input id="model" type="text" />
+        <span class="hint" id="modelHint">Free text — confirm the exact current model id in your provider dashboard.</span>
+      </label>
+
+      <label class="field">
+        <span class="field-label">Temperature: <span id="tempVal">0.8</span></span>
+        <input id="temperature" type="range" min="0" max="1.2" step="0.1" value="0.8" />
+        <span class="hint">Higher = more variety between variants. (OpenAI only — Anthropic Opus/Sonnet thinking models ignore it.)</span>
+      </label>
+
+      <label class="field">
+        <span class="field-label">Mandatory rules (applied to every message)</span>
+        <textarea id="globalRules" rows="3"></textarea>
+        <span class="hint">Hard rules enforced on every generated message — they override the base style and your example messages. One rule per line.</span>
+      </label>
+
+      <label class="field">
+        <span class="field-label">Base writing style</span>
+        <textarea id="styleDescription" rows="4"></textarea>
+        <span class="hint">Your overall voice — applied under <em>every</em> template. Templates below add the specific intent and example messages.</span>
+      </label>
+
+      <fieldset class="group">
+        <legend>Message templates</legend>
+        <p class="hint">
+          Each template is a kind of message you send — a sales pitch, asking for help, requesting a
+          feedback call, etc. Paste a few messages you've actually sent for that template so the model
+          matches its voice and intent. Each example is its own box, so multi-paragraph messages stay intact.
+        </p>
+
+        <div id="templates"></div>
+        <button id="add-template" class="secondary" type="button">+ Add template</button>
+
+        <label class="field" style="margin-top: 16px">
+          <span class="field-label">Default template (pre-selected when composing)</span>
+          <select id="defaultTemplate"></select>
+        </label>
+      </fieldset>
+
+      <details class="advanced">
+        <summary>Advanced — prompt &amp; company context overrides</summary>
+
+        <label class="field">
+          <span class="field-label">RemoteStar context override</span>
+          <textarea id="remoteStarContext" rows="6" placeholder="Leave blank to use the built-in RemoteStar context."></textarea>
+          <span class="hint">Replaces the built-in company description injected into the prompt.</span>
+        </label>
+
+        <label class="field">
+          <span class="field-label">System prompt override</span>
+          <textarea id="promptTemplate" rows="8" placeholder="Leave blank to use the built-in system prompt."></textarea>
+          <span class="hint">Full override of the built-in system prompt. Use <code>{{REMOTESTAR_CONTEXT}}</code>, <code>{{STYLE}}</code>, and <code>{{TEMPLATE}}</code> where you want those inserted.</span>
+        </label>
+      </details>
+
+      <button id="save" class="primary" type="button">Save settings</button>
+      <p id="status" class="status"></p>
+
+      <hr />
+      <p class="disclaimer">
+        This tool reads the LinkedIn profile page you are viewing, at your request, to help you
+        write a message you send manually. Automated reading of LinkedIn may violate its User
+        Agreement — use at your discretion and keep volume human-paced. It does not auto-connect,
+        auto-message, or send anything on your behalf.
+      </p>
+    </main>
+
+    <!-- Template block template (cloned by options.js) -->
+    <template id="tpl-template">
+      <div class="template" data-id="">
+        <div class="template-head">
+          <input class="tpl-name" type="text" placeholder="Template name (e.g. Sales pitch)" />
+          <button class="tpl-del danger small" type="button">Delete</button>
+        </div>
+        <label class="field">
+          <span class="field-label">What this message is for / how to approach it</span>
+          <textarea class="tpl-instructions" rows="3"></textarea>
+        </label>
+        <div class="field-label">Example messages</div>
+        <div class="tpl-examples"></div>
+        <button class="tpl-add-example secondary small" type="button">+ Add example message</button>
+      </div>
+    </template>
+
+    <template id="tpl-example">
+      <div class="tpl-example">
+        <textarea class="tpl-example-text" rows="5" placeholder="Paste one full message you've sent for this template (paragraphs are fine)."></textarea>
+        <button class="tpl-example-del danger small" type="button">Remove</button>
+      </div>
+    </template>
+
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

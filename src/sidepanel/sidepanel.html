@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RemoteStar Outreach</title>
+    <link rel="stylesheet" href="sidepanel.css" />
+  </head>
+  <body>
+    <header>
+      <div class="brand">RemoteStar Outreach</div>
+      <nav class="tabs">
+        <button id="tab-compose" class="tab active" type="button">Compose</button>
+        <button id="tab-history" class="tab" type="button">History</button>
+        <button id="open-options" class="icon-btn" type="button" title="Settings">⚙</button>
+      </nav>
+    </header>
+
+    <!-- COMPOSE VIEW -->
+    <section id="view-compose" class="view">
+      <p id="page-status" class="status muted"></p>
+      <button id="btn-scrape" class="primary" type="button">Scrape this profile</button>
+
+      <div id="review" class="hidden">
+        <h3>Review details</h3>
+        <p class="hint">Edit anything before generating. Badges show what we could read off the page.</p>
+
+        <label class="field">
+          <span class="field-label">Name <span class="badge" data-badge="name"></span></span>
+          <input id="f-name" type="text" />
+        </label>
+        <label class="field">
+          <span class="field-label">Headline <span class="badge" data-badge="headline"></span></span>
+          <input id="f-headline" type="text" />
+        </label>
+        <label class="field">
+          <span class="field-label">Work history <span class="badge" data-badge="experience"></span></span>
+          <textarea id="f-experience" rows="4"></textarea>
+        </label>
+        <label class="field">
+          <span class="field-label">About <span class="badge" data-badge="about"></span></span>
+          <textarea id="f-about" rows="3"></textarea>
+        </label>
+        <label class="field">
+          <span class="field-label">Recent activity <span class="badge" data-badge="activity"></span></span>
+          <textarea id="f-activity" rows="3"></textarea>
+        </label>
+        <button id="btn-activity" class="small" type="button">Fetch full recent posts…</button>
+        <p class="hint">Opens their activity page briefly in a background tab to read more posts. Navigates LinkedIn programmatically — use sparingly.</p>
+
+        <label class="field">
+          <span class="field-label">Template</span>
+          <select id="f-template"></select>
+        </label>
+
+        <button id="btn-generate" class="primary" type="button">Generate messages</button>
+      </div>
+
+      <p id="gen-status" class="status"></p>
+      <div id="variants"></div>
+    </section>
+
+    <!-- HISTORY VIEW -->
+    <section id="view-history" class="view hidden">
+      <div class="history-toolbar">
+        <span id="history-count" class="muted"></span>
+        <span class="spacer"></span>
+        <button id="btn-export" class="small" type="button">Export</button>
+        <button id="btn-import" class="small" type="button">Import</button>
+        <button id="btn-clear-history" class="danger small" type="button">Clear all</button>
+        <input id="import-file" type="file" accept="application/json" hidden />
+      </div>
+      <input id="history-search" type="search" placeholder="Search by name…" />
+      <div id="history-list"></div>
+    </section>
+
+    <div id="toast" class="toast hidden"></div>
+
+    <script type="module" src="sidepanel.js"></script>
+  </body>
+</html>
