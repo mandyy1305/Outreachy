@@ -10,6 +10,8 @@ import { getSettings } from '../lib/storage.js';
 import { buildSystemPrompt, buildUserPrompt, VARIANTS_SCHEMA } from '../lib/prompt.js';
 import { generate as openaiGenerate } from '../lib/llm-openai.js';
 import { generate as anthropicGenerate } from '../lib/llm-anthropic.js';
+import { lookupContact } from '../lib/signalhire.js';
+import { sendEmail } from '../lib/gmail.js';
 
 const ADAPTERS = { openai: openaiGenerate, anthropic: anthropicGenerate };
 
@@ -40,8 +42,35 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       .catch((e) => sendResponse({ ok: false, error: e.message }));
     return true;
   }
+  if (msg?.type === MSG.FIND_CONTACT) {
+    handleFindContact(msg.profileUrl)
+      .then((result) => sendResponse({ ok: true, ...result }))
+      .catch((e) => sendResponse({ ok: false, error: e.message, code: e.code }));
+    return true;
+  }
+  if (msg?.type === MSG.SEND_EMAIL) {
+    sendEmail(msg.payload || {})
+      .then(() => sendResponse({ ok: true }))
+      .catch((e) => sendResponse({ ok: false, error: e.message }));
+    return true;
+  }
   return false;
 });
+
+async function handleFindContact(profileUrl) {
+  const settings = await getSettings();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
+  try {
+    return await lookupContact({
+      apiKey: settings.signalhireKey,
+      profileUrl,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 async function handleScrape(tabId) {
   if (!tabId) throw new Error('No active tab to scrape.');
@@ -75,7 +104,8 @@ async function handleGenerate(payload) {
   const gen = ADAPTERS[provider] || openaiGenerate;
   const template =
     (settings.templates || []).find((t) => t.id === payload.templateId) || null;
-  const system = buildSystemPrompt(settings, template);
+  const channel = payload.channel || settings.defaultChannel || 'linkedin';
+  const system = buildSystemPrompt(settings, template, channel);
   const user = buildUserPrompt(payload.scraped);
 
   const controller = new AbortController();

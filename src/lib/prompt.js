@@ -25,9 +25,10 @@ export const VARIANTS_SCHEMA = {
         items: {
           type: 'object',
           additionalProperties: false,
-          required: ['angle', 'message'],
+          required: ['angle', 'subject', 'message'],
           properties: {
             angle: { type: 'string' },
+            subject: { type: 'string' }, // email subject; "" for non-email channels
             message: { type: 'string' },
           },
         },
@@ -55,7 +56,16 @@ function templateBlock(template) {
   return parts.join('\n\n');
 }
 
-export function buildSystemPrompt(settings, template) {
+const CHANNEL_GUIDANCE = {
+  linkedin:
+    'CHANNEL: LinkedIn direct message. Keep it tight and skimmable. Leave the "subject" field empty.',
+  whatsapp:
+    'CHANNEL: WhatsApp message. Very short and casual — 1 to 3 short sentences, like texting a peer. No greeting/sign-off boilerplate. Leave the "subject" field empty.',
+  email:
+    'CHANNEL: Email. Put a short, specific subject line in the "subject" field (it must follow the mandatory rules too). Start the body with a brief greeting using their first name and end with a short sign-off. Keep it concise.',
+};
+
+export function buildSystemPrompt(settings, template, channel) {
   const ctx =
     settings.remoteStarContext && settings.remoteStarContext.trim()
       ? settings.remoteStarContext.trim()
@@ -63,14 +73,16 @@ export function buildSystemPrompt(settings, template) {
   const base = val(settings.styleDescription);
   const rules = val(settings.globalRules);
   const typeBlock = templateBlock(template);
+  const channelText = CHANNEL_GUIDANCE[channel] || CHANNEL_GUIDANCE.linkedin;
 
-  // Optional full override. Supports {{REMOTESTAR_CONTEXT}}, {{STYLE}}, {{TEMPLATE}}, {{RULES}}.
+  // Optional full override. Supports {{REMOTESTAR_CONTEXT}}, {{STYLE}}, {{TEMPLATE}}, {{RULES}}, {{CHANNEL}}.
   if (settings.promptTemplate && settings.promptTemplate.trim()) {
     return settings.promptTemplate
       .replaceAll('{{REMOTESTAR_CONTEXT}}', ctx)
       .replaceAll('{{STYLE}}', base)
       .replaceAll('{{TEMPLATE}}', typeBlock)
-      .replaceAll('{{RULES}}', rules);
+      .replaceAll('{{RULES}}', rules)
+      .replaceAll('{{CHANNEL}}', channelText);
   }
 
   const styleSection = base ? `\n\nBASE WRITING STYLE (applies to every message):\n${base}` : '';
@@ -79,7 +91,9 @@ export function buildSystemPrompt(settings, template) {
     ? `\n\nMANDATORY RULES — these are absolute and override everything above, including the base style and the example messages (even if the examples break these rules, you must not):\n${rules}`
     : '';
 
-  return `You write personalized LinkedIn messages on behalf of a business-development representative at RemoteStar, to someone they recently connected with.
+  return `You write personalized outreach messages on behalf of a business-development representative at RemoteStar, to someone they recently connected with.
+
+${channelText}
 
 ABOUT REMOTESTAR (use only what's relevant to the message type):
 ${ctx}
@@ -91,7 +105,7 @@ GENERAL RULES:
 - Sound human, never robotic or buzzword-y.${styleSection}${typeSection}${rulesSection}
 
 OUTPUT:
-Return ONLY JSON matching the provided schema. Produce 2-3 variants of the message described by the MESSAGE TYPE above — each a distinct take (different opening hook / angle / wording), all serving the same goal and matching the example voice. Give each variant a short angle label (a few words).`;
+Return ONLY JSON matching the provided schema. Produce 2-3 variants of the message described by the MESSAGE TYPE above for the CHANNEL above — each a distinct take (different opening hook / angle / wording), all serving the same goal and matching the example voice. Give each variant a short angle label (a few words). Fill "subject" only for the email channel; otherwise set it to an empty string.`;
 }
 
 export function buildUserPrompt(scraped) {

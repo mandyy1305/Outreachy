@@ -9,4 +9,11 @@ export const MSG = {
   // Side panel -> service worker: open the activity page in a background tab,
   // scrape the full recent posts, return them. (Phase 2, opt-in.)
   FETCH_ACTIVITY: 'FETCH_ACTIVITY',
+  // Side panel -> service worker: look up email/phone via SignalHire.
+  FIND_CONTACT: 'FIND_CONTACT',
+  // Side panel -> service worker: send an email via the Gmail API.
+  SEND_EMAIL: 'SEND_EMAIL',
 };
+
+// Outreach channels.
+export const CHANNELS = ['linkedin', 'whatsapp', 'email'];

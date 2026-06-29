@@ -55,6 +55,8 @@ export const DEFAULT_SETTINGS = {
   // Free-text on purpose — model names drift; confirm in the provider dashboard.
   models: { openai: 'gpt-4o-mini', anthropic: 'claude-opus-4-8' },
   temperature: 0.8, // OpenAI only; the Anthropic adapter ignores it.
+  signalhireKey: '', // SignalHire Person API key (for email/phone lookup)
+  defaultChannel: 'linkedin', // linkedin | whatsapp | email
   globalRules: DEFAULT_GLOBAL_RULES, // hard rules applied to every message
   styleDescription: DEFAULT_STYLE, // base voice applied under every template
   templates: DEFAULT_TEMPLATES,

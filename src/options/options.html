@@ -36,6 +36,31 @@
         <span class="hint">Higher = more variety between variants. (OpenAI only — Anthropic Opus/Sonnet thinking models ignore it.)</span>
       </label>
 
+      <fieldset class="group">
+        <legend>Contact lookup &amp; channels</legend>
+
+        <label class="field">
+          <span class="field-label">SignalHire API key</span>
+          <input id="signalhireKey" type="password" placeholder="for email/phone lookup" autocomplete="off" />
+          <span class="hint">Used by the "Find email &amp; phone" button. SignalHire is a paid API (consumes credits per reveal). Get a key in your SignalHire account → API.</span>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Default channel</span>
+          <select id="defaultChannel">
+            <option value="linkedin">LinkedIn</option>
+            <option value="whatsapp">WhatsApp</option>
+            <option value="email">Email</option>
+          </select>
+        </label>
+
+        <p class="hint">
+          <strong>Email sending (Gmail):</strong> the "Send email" button uses the Gmail API via Google sign-in.
+          One-time setup is required — create a Google Cloud OAuth client for this extension and put its
+          client ID in <code>manifest.json</code> (<code>oauth2.client_id</code>). See the README "Gmail setup" section.
+        </p>
+      </fieldset>
+
       <label class="field">
         <span class="field-label">Mandatory rules (applied to every message)</span>
         <textarea id="globalRules" rows="3"></textarea>

@@ -9,6 +9,8 @@ const el = {
   modelHint: $('modelHint'),
   temperature: $('temperature'),
   tempVal: $('tempVal'),
+  signalhireKey: $('signalhireKey'),
+  defaultChannel: $('defaultChannel'),
   globalRules: $('globalRules'),
   styleDescription: $('styleDescription'),
   templates: $('templates'),
@@ -135,6 +137,8 @@ async function load() {
 
   el.temperature.value = s.temperature;
   el.tempVal.textContent = s.temperature;
+  el.signalhireKey.value = s.signalhireKey || '';
+  el.defaultChannel.value = s.defaultChannel || 'linkedin';
   el.globalRules.value = s.globalRules;
   el.styleDescription.value = s.styleDescription;
   el.remoteStarContext.value = s.remoteStarContext;
@@ -158,6 +162,8 @@ $('save').addEventListener('click', async () => {
       anthropic: models.anthropic || 'claude-opus-4-8',
     },
     temperature: parseFloat(el.temperature.value),
+    signalhireKey: el.signalhireKey.value.trim(),
+    defaultChannel: el.defaultChannel.value,
     globalRules: el.globalRules.value,
     styleDescription: el.styleDescription.value,
     templates: readTemplates(),

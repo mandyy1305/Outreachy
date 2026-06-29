@@ -8,10 +8,12 @@
   </head>
   <body>
     <header>
-      <div class="brand">RemoteStar Outreach</div>
+      <div class="brand"><span class="brand-dot"></span> RemoteStar <span class="brand-sub">Outreach</span></div>
       <nav class="tabs">
-        <button id="tab-compose" class="tab active" type="button">Compose</button>
-        <button id="tab-history" class="tab" type="button">History</button>
+        <div class="seg">
+          <button id="tab-compose" class="tab active" type="button">Compose</button>
+          <button id="tab-history" class="tab" type="button">History</button>
+        </div>
         <button id="open-options" class="icon-btn" type="button" title="Settings">⚙</button>
       </nav>
     </header>
@@ -52,6 +54,32 @@
           <span class="field-label">Template</span>
           <select id="f-template"></select>
         </label>
+
+        <label class="field">
+          <span class="field-label">Channel</span>
+          <select id="f-channel">
+            <option value="linkedin">LinkedIn</option>
+            <option value="whatsapp">WhatsApp</option>
+            <option value="email">Email</option>
+          </select>
+        </label>
+
+        <div id="contact-block" class="contact-block hidden">
+          <div class="contact-row">
+            <button id="btn-find-contact" class="secondary small" type="button">🔎 Find email &amp; phone</button>
+            <span id="contact-status" class="muted"></span>
+          </div>
+
+          <div class="contact-group">
+            <div class="field-label">Email <span id="email-count" class="count"></span></div>
+            <div id="email-list" class="contact-list"></div>
+          </div>
+
+          <div class="contact-group">
+            <div class="field-label">Phone <span id="phone-count" class="count"></span></div>
+            <div id="phone-list" class="contact-list"></div>
+          </div>
+        </div>
 
         <button id="btn-generate" class="primary" type="button">Generate messages</button>
       </div>

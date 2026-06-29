@@ -29,6 +29,14 @@ const els = {
   fActivity: $('f-activity'),
   btnActivity: $('btn-activity'),
   fTemplate: $('f-template'),
+  fChannel: $('f-channel'),
+  contactBlock: $('contact-block'),
+  btnFindContact: $('btn-find-contact'),
+  contactStatus: $('contact-status'),
+  emailList: $('email-list'),
+  phoneList: $('phone-list'),
+  emailCount: $('email-count'),
+  phoneCount: $('phone-count'),
   btnGenerate: $('btn-generate'),
   genStatus: $('gen-status'),
   variants: $('variants'),
@@ -46,6 +54,9 @@ const els = {
 let currentProfileUrl = '';
 let currentEntryId = null;
 let toastTimer = null;
+let lastVariants = []; // kept so we can re-render when the channel changes
+let foundEmails = []; // [{value, rating, subType}]
+let foundPhones = [];
 
 // ---- helpers -------------------------------------------------------------
 function sendMsg(message) {
@@ -171,13 +182,141 @@ async function doScrape() {
   setBadge('activity', fields.activity?.status || 'failed');
 
   await populateTemplates();
+  applyChannelUI();
 
   els.review.classList.remove('hidden');
   els.pageStatus.textContent = 'Review the details below, then generate.';
 
   currentEntryId = null;
+  lastVariants = [];
+  foundEmails = [];
+  foundPhones = [];
+  renderContacts();
   els.variants.innerHTML = '';
   els.genStatus.textContent = '';
+  els.contactStatus.textContent = '';
+}
+
+// ---- channel + contact lookup -------------------------------------------
+function applyChannelUI() {
+  const channel = els.fChannel.value;
+  els.contactBlock.classList.toggle('hidden', channel === 'linkedin');
+  // Re-render any existing variants so subject fields / action buttons match.
+  if (lastVariants.length) renderVariants(lastVariants, currentEntryId, channel);
+}
+
+async function doFindContact() {
+  if (!currentProfileUrl) {
+    showToast('Scrape a profile first');
+    return;
+  }
+  els.btnFindContact.disabled = true;
+  els.contactStatus.textContent = 'Looking up…';
+
+  const resp = await sendMsg({ type: MSG.FIND_CONTACT, profileUrl: currentProfileUrl });
+
+  els.btnFindContact.disabled = false;
+  if (!resp?.ok) {
+    els.contactStatus.textContent =
+      resp?.code === 'NO_KEY' ? 'No SignalHire key — add one in Settings (⚙).' : resp?.error || 'Lookup failed.';
+    return;
+  }
+
+  foundEmails = resp.emails || [];
+  foundPhones = resp.phones || [];
+  renderContacts();
+  els.contactStatus.textContent =
+    foundEmails.length || foundPhones.length
+      ? `Found ${foundEmails.length} email(s), ${foundPhones.length} phone(s) — pick one.`
+      : 'No contacts found for this profile.';
+}
+
+// Renders every found email/phone as a selectable radio row, plus a "type your
+// own" row. The selected row is read at send time.
+function renderContacts() {
+  renderContactGroup(els.emailList, 'email', foundEmails, 'type an email…');
+  renderContactGroup(els.phoneList, 'phone', foundPhones, 'type a phone (with country code)…');
+  els.emailCount.textContent = foundEmails.length ? `· ${foundEmails.length}` : '';
+  els.phoneCount.textContent = foundPhones.length ? `· ${foundPhones.length}` : '';
+}
+
+function renderContactGroup(container, kind, items, placeholder) {
+  container.innerHTML = '';
+  const group = `rs-${kind}`;
+
+  items.forEach((it, idx) => {
+    const row = document.createElement('label');
+    row.className = 'contact-opt';
+    const radio = document.createElement('input');
+    radio.type = 'radio';
+    radio.name = group;
+    radio.value = it.value;
+    if (idx === 0) radio.checked = true;
+    const val = document.createElement('span');
+    val.className = 'contact-opt-value';
+    val.textContent = it.value;
+    row.append(radio, val);
+    const tag = [it.subType, it.rating ? `${it.rating}%` : ''].filter(Boolean).join(' · ');
+    if (tag) {
+      const b = document.createElement('span');
+      b.className = 'badge ' + (it.rating >= 100 ? 'ok' : 'empty');
+      b.textContent = tag;
+      row.append(b);
+    }
+    container.append(row);
+  });
+
+  // "Other" / custom row.
+  const customRow = document.createElement('label');
+  customRow.className = 'contact-opt';
+  const customRadio = document.createElement('input');
+  customRadio.type = 'radio';
+  customRadio.name = group;
+  customRadio.value = '__custom__';
+  if (!items.length) customRadio.checked = true;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'contact-custom';
+  input.placeholder = placeholder;
+  input.addEventListener('focus', () => (customRadio.checked = true));
+  input.addEventListener('input', () => (customRadio.checked = true));
+  customRow.append(customRadio, input);
+  container.append(customRow);
+}
+
+function getSelectedContact(kind) {
+  const checked = document.querySelector(`input[name="rs-${kind}"]:checked`);
+  if (!checked) return '';
+  if (checked.value === '__custom__') {
+    const input = checked.parentElement.querySelector('.contact-custom');
+    return input ? input.value.trim() : '';
+  }
+  return checked.value;
+}
+
+function openWhatsApp(body) {
+  const digits = getSelectedContact('phone').replace(/[^\d]/g, '');
+  if (!digits) {
+    showToast('Pick or type a phone number first');
+    return;
+  }
+  const url = `https://wa.me/${digits}?text=${encodeURIComponent(body || '')}`;
+  chrome.tabs.create({ url });
+}
+
+async function sendEmailMessage(subject, body, btn) {
+  const to = getSelectedContact('email');
+  if (!to) {
+    showToast('Pick or type a recipient email first');
+    return;
+  }
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  const resp = await sendMsg({ type: MSG.SEND_EMAIL, payload: { to, subject, body } });
+  btn.disabled = false;
+  btn.textContent = original;
+  showToast(resp?.ok ? `Email sent to ${to}` : resp?.error || 'Send failed');
 }
 
 // ---- fetch full activity (Phase 2, opt-in) -------------------------------
@@ -253,13 +392,14 @@ async function doGenerate() {
     activity: els.fActivity.value.trim(),
   };
   const templateId = els.fTemplate.value;
+  const channel = els.fChannel.value;
 
   els.btnGenerate.disabled = true;
   els.genStatus.className = 'status busy';
   els.genStatus.textContent = 'Generating messages…';
   els.variants.innerHTML = '';
 
-  const resp = await sendMsg({ type: MSG.GENERATE, payload: { scraped, templateId } });
+  const resp = await sendMsg({ type: MSG.GENERATE, payload: { scraped, templateId, channel } });
 
   els.btnGenerate.disabled = false;
 
@@ -299,17 +439,19 @@ async function doGenerate() {
     provider: resp.provider || '',
     model: resp.model || '',
     template: resp.templateName || '',
+    channel,
     variants,
     chosenVariantIndex: null,
     copiedAt: null,
   };
   await addHistoryEntry(entry);
   currentEntryId = entry.id;
+  lastVariants = variants;
 
-  renderVariants(variants, entry.id);
+  renderVariants(variants, entry.id, channel);
 }
 
-function renderVariants(variants, entryId) {
+function renderVariants(variants, entryId, channel) {
   els.variants.innerHTML = '';
   variants.forEach((v, i) => {
     const card = document.createElement('div');
@@ -324,27 +466,74 @@ function renderVariants(variants, entryId) {
     words.className = 'variant-words';
     words.textContent = `${wordCount(v.message)} words`;
     head.append(angle, words);
+    card.append(head);
 
-    const text = document.createElement('div');
-    text.className = 'variant-text';
-    text.textContent = v.message || '';
+    // Email subject (editable) when on the email channel.
+    let subjectInput = null;
+    if (channel === 'email') {
+      subjectInput = document.createElement('input');
+      subjectInput.type = 'text';
+      subjectInput.className = 'variant-subject';
+      subjectInput.value = v.subject || '';
+      subjectInput.placeholder = 'subject';
+      card.append(subjectInput);
+    }
+
+    // Body is editable so you can tweak before copying/sending.
+    const body = document.createElement('textarea');
+    body.className = 'variant-body';
+    body.rows = channel === 'email' ? 6 : 4;
+    body.value = v.message || '';
+    body.addEventListener('input', () => {
+      words.textContent = `${wordCount(body.value)} words`;
+    });
+    card.append(body);
+
+    const actions = document.createElement('div');
+    actions.className = 'variant-actions';
 
     const copyBtn = document.createElement('button');
     copyBtn.className = 'copy';
     copyBtn.textContent = 'Copy';
     copyBtn.onclick = async () => {
-      const ok = await copyToClipboard(v.message || '');
+      const ok = await copyToClipboard(body.value || '');
       showToast(ok ? 'Copied to clipboard' : 'Copy failed — select the text manually');
-      if (ok && entryId) {
-        await updateHistoryEntry(entryId, {
-          chosenVariantIndex: i,
-          copiedAt: new Date().toISOString(),
-        });
-      }
+      markChosen(entryId, i);
     };
+    actions.append(copyBtn);
 
-    card.append(head, text, copyBtn);
+    if (channel === 'whatsapp') {
+      const wa = document.createElement('button');
+      wa.className = 'copy send';
+      wa.textContent = 'Send on WhatsApp';
+      wa.onclick = () => {
+        openWhatsApp(body.value);
+        markChosen(entryId, i);
+      };
+      actions.append(wa);
+    }
+
+    if (channel === 'email') {
+      const em = document.createElement('button');
+      em.className = 'copy send';
+      em.textContent = 'Send email';
+      em.onclick = async () => {
+        await sendEmailMessage(subjectInput ? subjectInput.value : '', body.value, em);
+        markChosen(entryId, i);
+      };
+      actions.append(em);
+    }
+
+    card.append(actions);
     els.variants.append(card);
+  });
+}
+
+async function markChosen(entryId, i) {
+  if (!entryId) return;
+  await updateHistoryEntry(entryId, {
+    chosenVariantIndex: i,
+    copiedAt: new Date().toISOString(),
   });
 }
 
@@ -398,7 +587,9 @@ function renderHistoryCard(e) {
 
   const meta = document.createElement('div');
   meta.className = 'hist-meta';
-  const metaBits = [e.headline, e.template, fmtDate(e.scrapedAt)].filter(Boolean).join(' · ');
+  const metaBits = [e.headline, e.template, e.channel, fmtDate(e.scrapedAt)]
+    .filter(Boolean)
+    .join(' · ');
   meta.append(document.createTextNode(metaBits + ' '));
   if (e.profileUrl) {
     const a = document.createElement('a');
@@ -502,6 +693,8 @@ els.tabHistory.onclick = () => showView('history');
 els.openOptions.onclick = () => chrome.runtime.openOptionsPage();
 els.btnScrape.onclick = doScrape;
 els.btnActivity.onclick = doFetchActivity;
+els.fChannel.onchange = applyChannelUI;
+els.btnFindContact.onclick = doFindContact;
 els.btnGenerate.onclick = doGenerate;
 els.btnExport.onclick = exportHistory;
 els.btnImport.onclick = () => els.importFile.click();
@@ -524,3 +717,7 @@ chrome.tabs.onUpdated.addListener((_id, info) => {
 
 detectPage();
 populateTemplates();
+getSettings().then((s) => {
+  els.fChannel.value = s.defaultChannel || 'linkedin';
+  applyChannelUI();
+});
