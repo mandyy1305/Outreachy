@@ -34,6 +34,9 @@ const els = {
   fAbout: $('f-about'),
   fActivity: $('f-activity'),
   btnActivity: $('btn-activity'),
+  fResearch: $('f-research'),
+  btnResearch: $('btn-research'),
+  researchStatus: $('research-status'),
   fTemplate: $('f-template'),
   fChannel: $('f-channel'),
   designField: $('design-field'),
@@ -283,6 +286,8 @@ async function doScrape() {
   els.fExperience.value = toText(fields.experience?.value);
   els.fAbout.value = toText(fields.about?.value);
   els.fActivity.value = toText(fields.activity?.value);
+  els.fResearch.value = '';
+  els.researchStatus.textContent = '';
 
   setBadge('name', fields.name?.status || 'failed');
   setBadge('headline', fields.headline?.status || 'failed');
@@ -523,13 +528,7 @@ async function populateTemplates() {
 
 // ---- generate ------------------------------------------------------------
 async function doGenerate() {
-  const scraped = {
-    name: els.fName.value.trim(),
-    headline: els.fHeadline.value.trim(),
-    experience: els.fExperience.value.trim(),
-    about: els.fAbout.value.trim(),
-    activity: els.fActivity.value.trim(),
-  };
+  const scraped = currentScraped();
   const templateId = els.fTemplate.value;
   const channel = els.fChannel.value;
 
@@ -599,7 +598,37 @@ function currentScraped() {
     experience: els.fExperience.value.trim(),
     about: els.fAbout.value.trim(),
     activity: els.fActivity.value.trim(),
+    research: els.fResearch.value.trim(),
   };
+}
+
+// ---- deep research ---------------------------------------------------------
+async function doResearch() {
+  const scraped = currentScraped();
+  if (!scraped.name && !scraped.headline) {
+    showToast('Scrape a profile first');
+    return;
+  }
+  els.btnResearch.disabled = true;
+  const original = els.btnResearch.textContent;
+  els.btnResearch.textContent = 'Researching… (30-60s)';
+  els.researchStatus.textContent = '';
+
+  const resp = await sendMsg({ type: MSG.RESEARCH, payload: { scraped } });
+
+  els.btnResearch.disabled = false;
+  els.btnResearch.textContent = original;
+
+  if (!resp?.ok) {
+    els.researchStatus.textContent = '';
+    showToast(
+      resp?.code === 'NO_KEY' ? 'No API key set — add one in Settings (⚙)' : resp?.error || 'Research failed',
+    );
+    return;
+  }
+  els.fResearch.value = resp.brief || '';
+  els.researchStatus.textContent = '· web-searched';
+  showToast('Research brief ready — review and edit');
 }
 
 function notesToMarkdown(name, n) {
@@ -1164,6 +1193,7 @@ els.openOptions.onclick = () => chrome.runtime.openOptionsPage();
 els.btnScrape.onclick = doScrape;
 els.btnFindPeople.onclick = doFindPeople;
 els.btnActivity.onclick = doFetchActivity;
+els.btnResearch.onclick = doResearch;
 els.fChannel.onchange = applyChannelUI;
 els.fDesign.onchange = () => {
   // Re-render so any open previews pick up the new design.

@@ -58,6 +58,13 @@
         <p class="hint">Opens their activity page briefly in a background tab to read more posts. Navigates LinkedIn programmatically — use sparingly.</p>
 
         <label class="field">
+          <span class="field-label">Research <span id="research-status" class="count"></span></span>
+          <textarea id="f-research" rows="4" placeholder="optional — click Deep research, or paste your own notes"></textarea>
+        </label>
+        <button id="btn-research" class="small" type="button">🔎 Deep research (web search)</button>
+        <p class="hint">Uses your configured AI provider's web search to build a brief: company stage, funding, hiring signals, the person's public footprint, and outreach hooks. Feeds message generation and call notes. Edit freely.</p>
+
+        <label class="field">
           <span class="field-label">Template</span>
           <select id="f-template"></select>
         </label>

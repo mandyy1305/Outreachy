@@ -13,6 +13,9 @@ export const MSG = {
   FIND_CONTACT: 'FIND_CONTACT',
   // Side panel -> service worker: send an email via the Gmail API.
   SEND_EMAIL: 'SEND_EMAIL',
+  // Side panel -> service worker: run a web-search research brief on the
+  // scraped prospect. payload: { scraped, company? }
+  RESEARCH: 'RESEARCH',
   // Side panel -> service worker: on a company page, scrape the company info,
   // run the people-tab keyword searches in background tabs, rank the results.
   // payload: { tabId, companyUrl }

@@ -233,6 +233,7 @@ export function buildUserPrompt(scraped) {
   if (val(s.experience)) parts.push(`Work history:\n${val(s.experience)}`);
   if (val(s.about)) parts.push(`About:\n${val(s.about)}`);
   if (val(s.activity)) parts.push(`Recent activity:\n${val(s.activity)}`);
+  if (val(s.research)) parts.push(`Research brief (web search, verified sources):\n${val(s.research)}`);
   return `Write the message variants for this prospect.\n\n${parts.join('\n\n')}`;
 }
 

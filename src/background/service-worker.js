@@ -20,6 +20,7 @@ import { generate as openaiGenerate } from '../lib/llm-openai.js';
 import { generate as anthropicGenerate } from '../lib/llm-anthropic.js';
 import { lookupContact } from '../lib/signalhire.js';
 import { sendEmail, getAccountStatus, signOut } from '../lib/gmail.js';
+import { research } from '../lib/research.js';
 
 const ADAPTERS = { openai: openaiGenerate, anthropic: anthropicGenerate };
 
@@ -60,6 +61,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     sendEmail(msg.payload || {})
       .then(() => sendResponse({ ok: true }))
       .catch((e) => sendResponse({ ok: false, error: e.message }));
+    return true;
+  }
+  if (msg?.type === MSG.RESEARCH) {
+    handleResearch(msg.payload || {})
+      .then((brief) => sendResponse({ ok: true, brief }))
+      .catch((e) => sendResponse({ ok: false, error: e.message, code: e.code }));
     return true;
   }
   if (msg?.type === MSG.FIND_PEOPLE) {
@@ -168,6 +175,33 @@ async function handleGenerate(payload) {
       throw err;
     }
     return { variants: out.variants, model, provider, templateName: template?.name || '' };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+// Web-search research brief via the configured provider. 90s budget — server-
+// side web search rounds are slow.
+async function handleResearch(payload) {
+  const settings = await getSettings();
+  const provider = settings.provider || 'openai';
+  const apiKey = settings.keys?.[provider] || '';
+  if (!apiKey) {
+    const e = new Error(`No ${provider} API key set. Open Settings to add one.`);
+    e.code = 'NO_KEY';
+    throw e;
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 90000);
+  try {
+    return await research({
+      provider,
+      apiKey,
+      model: settings.models?.[provider] || '',
+      scraped: payload.scraped,
+      company: payload.company,
+      signal: controller.signal,
+    });
   } finally {
     clearTimeout(timeout);
   }
