@@ -6,7 +6,7 @@
     <title>RemoteStar Outreach</title>
     <link rel="stylesheet" href="sidepanel.css" />
   </head>
-  <body>
+  <body data-stage="detect">
     <header>
       <div class="brand"><span class="brand-dot"></span> RemoteStar <span class="brand-sub">Outreach</span></div>
       <nav class="tabs">
@@ -20,21 +20,39 @@
 
     <!-- COMPOSE VIEW -->
     <section id="view-compose" class="view">
-      <p id="page-status" class="status muted"></p>
-      <button id="btn-scrape" class="primary" type="button">Scrape this profile</button>
 
-      <div id="company-block" class="hidden">
-        <button id="btn-find-people" class="primary" type="button">🎯 Find people to pitch</button>
-        <p class="hint">Searches this company's People tab (founders, engineering leaders, talent/HR) in background tabs — one search at a time — then ranks who's worth contacting. Edit the searches in Settings.</p>
+      <!-- STAGE 1: detect -->
+      <div id="stage-detect" class="stage">
+        <div class="empty-state-hero">
+          <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="7"></circle>
+            <path d="m20 20-3.5-3.5"></path>
+            <circle cx="11" cy="9" r="2.2"></circle>
+            <path d="M7.5 14.5c.7-1.4 2-2.2 3.5-2.2s2.8.8 3.5 2.2"></path>
+          </svg>
+          <p id="page-status" class="status muted"></p>
+          <button id="btn-scrape" class="primary" type="button">Scrape this profile</button>
+          <div id="company-block" class="hidden">
+            <button id="btn-find-people" class="primary" type="button">Find people to pitch</button>
+            <p class="empty-caption">Runs your saved searches on this company's People tab and ranks who's worth contacting.</p>
+          </div>
+        </div>
         <p id="people-status" class="status"></p>
-        <div id="people-list"></div>
       </div>
 
-      <div id="review" class="hidden">
-        <details id="review-details">
-          <summary>Profile data &amp; research</summary>
-          <p class="hint">Edit anything before generating. Badges show what we could read off the page.</p>
+      <!-- STAGE 2: compose -->
+      <div id="stage-compose" class="stage hidden">
+        <div class="prospect-card">
+          <div id="prospect-avatar" class="prospect-avatar" aria-hidden="true"></div>
+          <div class="prospect-id">
+            <div id="prospect-name" class="prospect-name"></div>
+            <div id="prospect-headline" class="prospect-headline"></div>
+          </div>
+          <button id="btn-restart" class="icon-btn" type="button" title="Start over with another page">✕</button>
+        </div>
 
+        <details id="review-details">
+          <summary><span>Scraped data</span> <span id="scrape-summary" class="count"></span></summary>
           <label class="field">
             <span class="field-label">Name <span class="badge" data-badge="name"></span></span>
             <input id="f-name" type="text" />
@@ -55,61 +73,67 @@
             <span class="field-label">Recent activity <span class="badge" data-badge="activity"></span></span>
             <textarea id="f-activity" rows="3"></textarea>
           </label>
-          <button id="btn-activity" class="small" type="button">Fetch full recent posts…</button>
-
-          <label class="field">
-            <span class="field-label">Research <span id="research-status" class="count"></span></span>
-            <textarea id="f-research" rows="4" placeholder="optional — click Deep research, or paste your own notes"></textarea>
-          </label>
-          <button id="btn-research" class="small" type="button">🔎 Deep research (web search)</button>
+          <button id="btn-activity" class="small" type="button" title="Opens their activity page briefly in a background tab to read more posts">Fetch full recent posts…</button>
         </details>
 
-        <label class="field">
-          <span class="field-label">Template</span>
-          <select id="f-template"></select>
-        </label>
+        <details id="research-details">
+          <summary><span>Research</span> <span id="research-status" class="count"></span></summary>
+          <textarea id="f-research" rows="5" placeholder="Optional. Run deep research or paste your own notes — feeds messages and call notes."></textarea>
+          <button id="btn-research" class="small" type="button" title="Web-searches the prospect and company via your AI provider">Deep research (web search)</button>
+        </details>
 
-        <label class="field">
-          <span class="field-label">Channel</span>
-          <select id="f-channel">
-            <option value="linkedin">LinkedIn</option>
-            <option value="whatsapp">WhatsApp</option>
-            <option value="email">Email</option>
-          </select>
-        </label>
-
-        <label class="field hidden" id="design-field">
-          <span class="field-label">Email design</span>
-          <select id="f-design"></select>
-        </label>
-
-        <div id="contact-block" class="contact-block hidden">
-          <div class="contact-row">
-            <button id="btn-find-contact" class="secondary small" type="button">🔎 Find email &amp; phone</button>
-            <span id="contact-status" class="muted"></span>
+        <div class="compose-card">
+          <div class="field-label">Channel</div>
+          <div id="channel-pills" class="pills" role="radiogroup" aria-label="Channel">
+            <button type="button" class="pill active" data-channel="linkedin">LinkedIn</button>
+            <button type="button" class="pill" data-channel="whatsapp">WhatsApp</button>
+            <button type="button" class="pill" data-channel="email">Email</button>
           </div>
 
-          <div class="contact-group">
-            <div class="field-label">Email <span id="email-count" class="count"></span></div>
-            <div id="email-list" class="contact-list"></div>
-          </div>
+          <label class="field">
+            <span class="field-label">Template</span>
+            <select id="f-template"></select>
+          </label>
 
-          <div class="contact-group">
-            <div class="field-label">Phone <span id="phone-count" class="count"></span></div>
-            <div id="phone-list" class="contact-list"></div>
+          <label class="field hidden" id="design-field">
+            <span class="field-label">Email design</span>
+            <select id="f-design"></select>
+          </label>
+
+          <div id="contact-block" class="contact-block hidden">
+            <div class="contact-row">
+              <button id="btn-find-contact" class="secondary small" type="button">Find email &amp; phone</button>
+              <span id="contact-status" class="muted"></span>
+            </div>
+            <div class="contact-group">
+              <div class="field-label">Email <span id="email-count" class="count"></span></div>
+              <div id="email-list" class="contact-list"></div>
+            </div>
+            <div class="contact-group">
+              <div class="field-label">Phone <span id="phone-count" class="count"></span></div>
+              <div id="phone-list" class="contact-list"></div>
+            </div>
           </div>
         </div>
 
-        <div class="gen-row">
+        <div class="action-bar">
           <button id="btn-generate" class="primary" type="button">Generate messages</button>
-          <button id="btn-callnotes" class="secondary" type="button">📋 Call notes</button>
+          <button id="btn-callnotes" class="secondary" type="button" title="Call-prep brief: hooks, pitch angles, objections">Call notes</button>
         </div>
+      </div>
 
+      <!-- STAGE 3: results -->
+      <div id="stage-results" class="stage hidden">
+        <div class="results-bar">
+          <button id="btn-back" class="back-btn" type="button">←</button>
+          <span id="results-context" class="results-context"></span>
+        </div>
+        <div id="variants"></div>
+        <div id="callnotes" class="hidden"></div>
+        <div id="people-list"></div>
       </div>
 
       <p id="gen-status" class="status"></p>
-      <div id="variants"></div>
-      <div id="callnotes" class="hidden"></div>
     </section>
 
     <!-- HISTORY VIEW -->

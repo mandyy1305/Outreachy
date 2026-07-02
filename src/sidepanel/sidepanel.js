@@ -28,7 +28,18 @@ const els = {
   btnFindPeople: $('btn-find-people'),
   peopleStatus: $('people-status'),
   peopleList: $('people-list'),
-  review: $('review'),
+  stageDetect: $('stage-detect'),
+  stageCompose: $('stage-compose'),
+  stageResults: $('stage-results'),
+  prospectAvatar: $('prospect-avatar'),
+  prospectName: $('prospect-name'),
+  prospectHeadline: $('prospect-headline'),
+  btnRestart: $('btn-restart'),
+  scrapeSummary: $('scrape-summary'),
+  researchDetails: $('research-details'),
+  btnBack: $('btn-back'),
+  resultsContext: $('results-context'),
+  channelPills: $('channel-pills'),
   fName: $('f-name'),
   fHeadline: $('f-headline'),
   fExperience: $('f-experience'),
@@ -39,7 +50,6 @@ const els = {
   btnResearch: $('btn-research'),
   researchStatus: $('research-status'),
   fTemplate: $('f-template'),
-  fChannel: $('f-channel'),
   designField: $('design-field'),
   fDesign: $('f-design'),
   contactBlock: $('contact-block'),
@@ -73,6 +83,40 @@ let toastTimer = null;
 let lastVariants = []; // kept so we can re-render when the channel changes
 let foundEmails = []; // [{value, rating, subType}]
 let foundPhones = [];
+let currentChannel = 'linkedin';
+let resultsOrigin = 'compose'; // where the back button returns to
+
+// ---- stages ---------------------------------------------------------------
+// The compose view is a 3-stage flow — detect (pick a page), compose (review +
+// choose what to make), results (one result set, full focus, back to edit).
+// Exactly one stage is visible at a time; nothing accumulates.
+function setStage(stage) {
+  document.body.dataset.stage = stage;
+  els.stageDetect.classList.toggle('hidden', stage !== 'detect');
+  els.stageCompose.classList.toggle('hidden', stage !== 'compose');
+  els.stageResults.classList.toggle('hidden', stage !== 'results');
+  els.genStatus.textContent = '';
+}
+
+const CHANNEL_LABELS = { linkedin: 'LinkedIn DM', whatsapp: 'WhatsApp', email: 'Email' };
+
+function setChannel(ch) {
+  currentChannel = ch;
+  els.channelPills.querySelectorAll('.pill').forEach((p) => {
+    p.classList.toggle('active', p.dataset.channel === ch);
+  });
+  applyChannelUI();
+}
+
+// Show ONE result set (variants | callnotes | people) with a context line.
+function showResults(kind, context, origin) {
+  els.variants.classList.toggle('hidden', kind !== 'variants');
+  els.callnotes.classList.toggle('hidden', kind !== 'callnotes');
+  els.peopleList.classList.toggle('hidden', kind !== 'people');
+  els.resultsContext.textContent = context;
+  resultsOrigin = origin;
+  setStage('results');
+}
 
 // ---- helpers -------------------------------------------------------------
 // Never throws: a dead message port (e.g. the service worker got killed while
@@ -149,20 +193,23 @@ function showView(which) {
 
 // ---- page detection ------------------------------------------------------
 async function detectPage() {
+  // Only the detect stage reacts to tab changes — never yank the user out of
+  // an in-progress compose or results view because they switched tabs.
+  if (document.body.dataset.stage !== 'detect') return;
   const tab = await getActiveTab();
   const url = tab?.url || '';
   const isCompany = COMPANY_RE.test(url);
   els.companyBlock.classList.toggle('hidden', !isCompany);
   els.btnScrape.classList.toggle('hidden', isCompany);
   if (PROFILE_RE.test(url)) {
-    els.pageStatus.textContent = 'LinkedIn profile detected — ready to scrape.';
+    els.pageStatus.textContent = 'LinkedIn profile detected.';
     els.pageStatus.classList.remove('error');
     els.btnScrape.disabled = false;
   } else if (isCompany) {
     els.pageStatus.textContent = 'LinkedIn company page detected.';
     els.pageStatus.classList.remove('error');
   } else {
-    els.pageStatus.textContent = 'Open a LinkedIn profile (linkedin.com/in/…) or company page to begin.';
+    els.pageStatus.textContent = 'Open a LinkedIn profile or company page to begin.';
     els.pageStatus.classList.remove('error');
     els.btnScrape.disabled = true;
   }
@@ -194,8 +241,12 @@ async function doFindPeople() {
 
   const people = resp.people || [];
   els.peopleStatus.className = 'status';
-  els.peopleStatus.textContent = `${people.length} people found at ${resp.company?.name || 'this company'} — ranked by fit.`;
+  els.peopleStatus.textContent = '';
+  els.variants.innerHTML = '';
+  els.callnotes.innerHTML = '';
+  lastVariants = [];
   renderPeople(people);
+  showResults('people', `${resp.company?.name || 'Company'} · ${people.length} people, ranked`, 'detect');
 
   await addHistoryEntry({
     id: crypto.randomUUID(),
@@ -306,9 +357,14 @@ async function doScrape() {
   await populateTemplates();
   applyChannelUI();
 
-  els.review.classList.remove('hidden');
-  els.reviewDetails.open = true;
-  els.pageStatus.textContent = 'Review the details below, then generate.';
+  // Prospect identity card + read-count; raw fields stay behind the accordion.
+  updateProspectCard();
+  const read = ['name', 'headline', 'experience', 'about', 'activity'].filter(
+    (k) => fields[k]?.status === 'ok',
+  ).length;
+  els.scrapeSummary.textContent = `${read}/5 read · edit`;
+  els.reviewDetails.open = false;
+  els.researchDetails.open = false;
 
   currentEntryId = null;
   lastVariants = [];
@@ -317,18 +373,30 @@ async function doScrape() {
   renderContacts();
   els.variants.innerHTML = '';
   els.callnotes.innerHTML = '';
-  els.callnotes.classList.add('hidden');
+  els.peopleList.innerHTML = '';
   els.genStatus.textContent = '';
   els.contactStatus.textContent = '';
+  setStage('compose');
+}
+
+function updateProspectCard() {
+  const name = els.fName.value.trim() || 'Unknown prospect';
+  els.prospectName.textContent = name;
+  els.prospectHeadline.textContent = els.fHeadline.value.trim();
+  els.prospectAvatar.textContent = name
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0] || '')
+    .join('')
+    .toUpperCase();
 }
 
 // ---- channel + contact lookup -------------------------------------------
 function applyChannelUI() {
-  const channel = els.fChannel.value;
-  els.contactBlock.classList.toggle('hidden', channel === 'linkedin');
-  els.designField.classList.toggle('hidden', channel !== 'email');
+  els.contactBlock.classList.toggle('hidden', currentChannel === 'linkedin');
+  els.designField.classList.toggle('hidden', currentChannel !== 'email');
   // Re-render any existing variants so subject fields / action buttons match.
-  if (lastVariants.length) renderVariants(lastVariants, currentEntryId, channel);
+  if (lastVariants.length) renderVariants(lastVariants, currentEntryId, currentChannel);
 }
 
 // Design picker (email channel). Rendering needs the signature/CTA settings,
@@ -539,13 +607,12 @@ async function populateTemplates() {
 async function doGenerate() {
   const scraped = currentScraped();
   const templateId = els.fTemplate.value;
-  const channel = els.fChannel.value;
+  const channel = currentChannel;
 
   els.btnGenerate.disabled = true;
   els.genStatus.className = 'status busy';
   els.genStatus.textContent = 'Generating messages…';
   els.variants.innerHTML = '';
-  els.callnotes.classList.add('hidden');
 
   const resp = await sendMsg({ type: MSG.GENERATE, payload: { scraped, templateId, channel } });
 
@@ -577,8 +644,6 @@ async function doGenerate() {
     return;
   }
 
-  els.reviewDetails.open = false; // collapse the data section — results take focus
-
   const entry = {
     id: crypto.randomUUID(),
     name: scraped.name || '(unknown)',
@@ -599,6 +664,7 @@ async function doGenerate() {
   lastVariants = variants;
 
   renderVariants(variants, entry.id, channel);
+  showResults('variants', `${scraped.name || 'Prospect'} · ${CHANNEL_LABELS[channel]}`, 'compose');
 }
 
 // ---- call-prep notes -------------------------------------------------------
@@ -638,7 +704,8 @@ async function doResearch() {
     return;
   }
   els.fResearch.value = resp.brief || '';
-  els.researchStatus.textContent = '· web-searched';
+  els.researchStatus.textContent = 'web-searched ✓';
+  els.researchDetails.open = true;
   showToast('Research brief ready — review and edit');
 }
 
@@ -683,8 +750,8 @@ async function doGenerateNotes() {
   els.genStatus.textContent = '';
   els.variants.innerHTML = ''; // notes replace messages — one result set at a time
   lastVariants = [];
-  els.reviewDetails.open = false;
   renderCallNotes(scraped.name, resp.notes);
+  showResults('callnotes', `${scraped.name || 'Prospect'} · Call notes`, 'compose');
 
   await addHistoryEntry({
     id: crypto.randomUUID(),
@@ -1258,11 +1325,24 @@ els.btnScrape.onclick = doScrape;
 els.btnFindPeople.onclick = doFindPeople;
 els.btnActivity.onclick = doFetchActivity;
 els.btnResearch.onclick = doResearch;
-els.fChannel.onchange = applyChannelUI;
+els.channelPills.querySelectorAll('.pill').forEach((p) => {
+  p.onclick = () => setChannel(p.dataset.channel);
+});
 els.fDesign.onchange = () => {
   // Re-render so any open previews pick up the new design.
-  if (lastVariants.length) renderVariants(lastVariants, currentEntryId, els.fChannel.value);
+  if (lastVariants.length) renderVariants(lastVariants, currentEntryId, currentChannel);
 };
+els.btnBack.onclick = () => {
+  setStage(resultsOrigin);
+  if (resultsOrigin === 'detect') detectPage();
+};
+els.btnRestart.onclick = () => {
+  setStage('detect');
+  detectPage();
+};
+// Keep the identity card in sync with manual edits to the raw fields.
+els.fName.addEventListener('input', updateProspectCard);
+els.fHeadline.addEventListener('input', updateProspectCard);
 els.btnFindContact.onclick = doFindContact;
 els.btnGenerate.onclick = doGenerate;
 els.btnCallNotes.onclick = doGenerateNotes;
@@ -1285,11 +1365,11 @@ chrome.tabs.onUpdated.addListener((_id, info) => {
   if (info.status === 'complete' || info.url) detectPage();
 });
 
+setStage('detect');
 detectPage();
 populateTemplates();
 populateDesigns();
 refreshAccountBar();
 getSettings().then((s) => {
-  els.fChannel.value = s.defaultChannel || 'linkedin';
-  applyChannelUI();
+  setChannel(s.defaultChannel || 'linkedin');
 });
