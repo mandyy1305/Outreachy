@@ -178,8 +178,12 @@ const CHANNEL_GUIDANCE = {
     'CHANNEL: LinkedIn direct message. Keep it tight and skimmable. Leave the "subject" field empty.',
   whatsapp:
     'CHANNEL: WhatsApp message. Very short and casual — 1 to 3 short sentences, like texting a peer. No greeting/sign-off boilerplate. Leave the "subject" field empty.',
-  email:
-    'CHANNEL: Email. Put a short, specific subject line in the "subject" field (it must follow the mandatory rules too). Start the body with a brief greeting using their first name and end with a short sign-off. Keep it concise.',
+  email: `CHANNEL: Email — a professional cold email, not a DM. Formatting requirements (these take precedence over any casual-style or all-lowercase rule, which apply to DMs only):
+- Standard capitalization and punctuation throughout, including the subject.
+- Subject: short and specific to THEM (their company/role/situation), never clickbait, no "quick question".
+- Structure: greeting with first name → one specific, factual observation about them or their company (no flattery) → one or two sentences on why RemoteStar is relevant to THAT observation, with a concrete proof point → one clear, low-pressure ask → short sign-off.
+- 60-120 words. Short paragraphs (1-2 sentences each).
+- BANNED: "congrats on", "huge step", "testament to", "impressive", "love what you're doing", "I hope this finds you well", "I came across", and any opener that compliments instead of observing. Lead with substance, not praise.`,
 };
 
 export function buildSystemPrompt(settings, template, channel) {
@@ -205,7 +209,7 @@ export function buildSystemPrompt(settings, template, channel) {
   const styleSection = base ? `\n\nBASE WRITING STYLE (applies to every message):\n${base}` : '';
   const typeSection = typeBlock ? `\n\n${typeBlock}` : '';
   const rulesSection = rules
-    ? `\n\nMANDATORY RULES — these are absolute and override everything above, including the base style and the example messages (even if the examples break these rules, you must not):\n${rules}`
+    ? `\n\nMANDATORY RULES — these are absolute and override everything above, including the base style and the example messages (even if the examples break these rules, you must not). Single exception: on the email channel, the CHANNEL formatting requirements (capitalization, punctuation, structure) win over any conflicting formatting rule here — email rules about voice and content still apply:\n${rules}`
     : '';
 
   return `You write personalized outreach messages on behalf of a business-development representative at RemoteStar, to someone they recently connected with.

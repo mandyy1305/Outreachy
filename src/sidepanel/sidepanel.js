@@ -23,6 +23,7 @@ const els = {
   viewHistory: $('view-history'),
   pageStatus: $('page-status'),
   btnScrape: $('btn-scrape'),
+  reviewDetails: $('review-details'),
   companyBlock: $('company-block'),
   btnFindPeople: $('btn-find-people'),
   peopleStatus: $('people-status'),
@@ -299,6 +300,7 @@ async function doScrape() {
   applyChannelUI();
 
   els.review.classList.remove('hidden');
+  els.reviewDetails.open = true;
   els.pageStatus.textContent = 'Review the details below, then generate.';
 
   currentEntryId = null;
@@ -568,6 +570,8 @@ async function doGenerate() {
     return;
   }
 
+  els.reviewDetails.open = false; // collapse the data section — results take focus
+
   const entry = {
     id: crypto.randomUUID(),
     name: scraped.name || '(unknown)',
@@ -670,6 +674,9 @@ async function doGenerateNotes() {
 
   els.genStatus.className = 'status';
   els.genStatus.textContent = '';
+  els.variants.innerHTML = ''; // notes replace messages — one result set at a time
+  lastVariants = [];
+  els.reviewDetails.open = false;
   renderCallNotes(scraped.name, resp.notes);
 
   await addHistoryEntry({
@@ -769,113 +776,145 @@ function renderCallNotes(name, n) {
   els.callnotes.append(card);
 }
 
+// Tabbed: one variant visible at a time (chips switch), so the panel never
+// grows into an endless scroll. Edits write back into the variants array, so
+// switching tabs / channels / designs never loses a tweak.
 function renderVariants(variants, entryId, channel) {
   els.variants.innerHTML = '';
-  variants.forEach((v, i) => {
-    const card = document.createElement('div');
-    card.className = 'variant';
+  if (!variants.length) return;
 
-    const head = document.createElement('div');
-    head.className = 'variant-head';
-    const angle = document.createElement('span');
-    angle.className = 'variant-angle';
-    angle.textContent = v.angle || `Variant ${i + 1}`;
-    const words = document.createElement('span');
-    words.className = 'variant-words';
-    words.textContent = `${wordCount(v.message)} words`;
-    head.append(angle, words);
-    card.append(head);
+  const tabs = document.createElement('div');
+  tabs.className = 'variant-tabs';
+  const holder = document.createElement('div');
 
-    // Email subject (editable) when on the email channel.
-    let subjectInput = null;
-    if (channel === 'email') {
-      subjectInput = document.createElement('input');
-      subjectInput.type = 'text';
-      subjectInput.className = 'variant-subject';
-      subjectInput.value = v.subject || '';
-      subjectInput.placeholder = 'subject';
-      card.append(subjectInput);
-    }
+  const chips = variants.map((v, i) => {
+    const chip = document.createElement('button');
+    chip.className = 'variant-tab';
+    chip.textContent = v.angle ? v.angle.slice(0, 26) : `Variant ${i + 1}`;
+    chip.onclick = () => show(i);
+    tabs.append(chip);
+    return chip;
+  });
 
-    // Body is editable so you can tweak before copying/sending.
-    const body = document.createElement('textarea');
-    body.className = 'variant-body';
-    body.rows = channel === 'email' ? 6 : 4;
-    body.value = v.message || '';
-    card.append(body);
+  function show(i) {
+    chips.forEach((c, j) => c.classList.toggle('active', j === i));
+    holder.innerHTML = '';
+    holder.append(buildVariantCard(variants[i], i, entryId, channel));
+  }
 
-    // Live preview of the designed email (iframe so its CSS can't leak out).
-    let preview = null;
-    const refreshPreview = () => {
-      if (!preview || preview.classList.contains('hidden')) return;
-      const html = currentEmailHtml(body.value);
-      preview.srcdoc =
-        html ||
-        `<pre style="margin:0;padding:12px;font:13px/1.5 -apple-system,system-ui,sans-serif;white-space:pre-wrap;">${(body.value || '')
-          .replaceAll('&', '&amp;')
-          .replaceAll('<', '&lt;')}</pre>`;
-    };
-    if (channel === 'email') {
-      preview = document.createElement('iframe');
-      preview.className = 'variant-preview hidden';
-      preview.setAttribute('sandbox', ''); // static preview: no scripts, no navigation
-      card.append(preview);
-    }
-    body.addEventListener('input', () => {
-      words.textContent = `${wordCount(body.value)} words`;
-      refreshPreview();
+  els.variants.append(tabs, holder);
+  show(0);
+}
+
+function buildVariantCard(v, i, entryId, channel) {
+  const card = document.createElement('div');
+  card.className = 'variant';
+
+  const head = document.createElement('div');
+  head.className = 'variant-head';
+  const angle = document.createElement('span');
+  angle.className = 'variant-angle';
+  angle.textContent = v.angle || `Variant ${i + 1}`;
+  const words = document.createElement('span');
+  words.className = 'variant-words';
+  words.textContent = `${wordCount(v.message)} words`;
+  head.append(angle, words);
+  card.append(head);
+
+  // Email subject (editable) when on the email channel.
+  let subjectInput = null;
+  if (channel === 'email') {
+    subjectInput = document.createElement('input');
+    subjectInput.type = 'text';
+    subjectInput.className = 'variant-subject';
+    subjectInput.value = v.subject || '';
+    subjectInput.placeholder = 'subject';
+    subjectInput.addEventListener('input', () => {
+      v.subject = subjectInput.value; // persist across tab switches
     });
+    card.append(subjectInput);
+  }
 
-    const actions = document.createElement('div');
-    actions.className = 'variant-actions';
+  // Body is editable; edits persist into the variant itself.
+  const body = document.createElement('textarea');
+  body.className = 'variant-body';
+  body.rows = channel === 'email' ? 8 : 5;
+  body.value = v.message || '';
+  card.append(body);
 
-    if (channel === 'email') {
-      const pv = document.createElement('button');
-      pv.className = 'small';
-      pv.textContent = 'Preview';
-      pv.onclick = () => {
-        const nowHidden = preview.classList.toggle('hidden');
-        pv.textContent = nowHidden ? 'Preview' : 'Hide preview';
-        refreshPreview();
-      };
-      actions.append(pv);
-    }
+  // Preview swaps IN PLACE of the editor — never stacked below it.
+  let preview = null;
+  const refreshPreview = () => {
+    if (!preview || preview.classList.contains('hidden')) return;
+    const html = currentEmailHtml(body.value);
+    preview.srcdoc =
+      html ||
+      `<pre style="margin:0;padding:12px;font:13px/1.5 -apple-system,system-ui,sans-serif;white-space:pre-wrap;">${(body.value || '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')}</pre>`;
+  };
+  if (channel === 'email') {
+    preview = document.createElement('iframe');
+    preview.className = 'variant-preview hidden';
+    preview.setAttribute('sandbox', ''); // static preview: no scripts, no navigation
+    card.append(preview);
+  }
+  body.addEventListener('input', () => {
+    v.message = body.value; // persist across tab switches
+    words.textContent = `${wordCount(body.value)} words`;
+    refreshPreview();
+  });
 
-    const copyBtn = document.createElement('button');
-    copyBtn.className = 'copy';
-    copyBtn.textContent = 'Copy';
-    copyBtn.onclick = async () => {
-      const ok = await copyToClipboard(body.value || '');
-      showToast(ok ? 'Copied to clipboard' : 'Copy failed — select the text manually');
+  const actions = document.createElement('div');
+  actions.className = 'variant-actions';
+
+  if (channel === 'email') {
+    const pv = document.createElement('button');
+    pv.className = 'small';
+    pv.textContent = 'Preview';
+    pv.onclick = () => {
+      const showingPreview = preview.classList.toggle('hidden') === false;
+      body.classList.toggle('hidden', showingPreview);
+      pv.textContent = showingPreview ? 'Edit' : 'Preview';
+      refreshPreview();
+    };
+    actions.append(pv);
+  }
+
+  const copyBtn = document.createElement('button');
+  copyBtn.className = 'copy';
+  copyBtn.textContent = 'Copy';
+  copyBtn.onclick = async () => {
+    const ok = await copyToClipboard(body.value || '');
+    showToast(ok ? 'Copied to clipboard' : 'Copy failed — select the text manually');
+    markChosen(entryId, i);
+  };
+  actions.append(copyBtn);
+
+  if (channel === 'whatsapp') {
+    const wa = document.createElement('button');
+    wa.className = 'copy send';
+    wa.textContent = 'Send on WhatsApp';
+    wa.onclick = () => {
+      openWhatsApp(body.value);
       markChosen(entryId, i);
     };
-    actions.append(copyBtn);
+    actions.append(wa);
+  }
 
-    if (channel === 'whatsapp') {
-      const wa = document.createElement('button');
-      wa.className = 'copy send';
-      wa.textContent = 'Send on WhatsApp';
-      wa.onclick = () => {
-        openWhatsApp(body.value);
-        markChosen(entryId, i);
-      };
-      actions.append(wa);
-    }
+  if (channel === 'email') {
+    const em = document.createElement('button');
+    em.className = 'copy send';
+    em.textContent = 'Send email';
+    em.onclick = async () => {
+      await sendEmailMessage(subjectInput ? subjectInput.value : '', body.value, em);
+      markChosen(entryId, i);
+    };
+    actions.append(em);
+  }
 
-    if (channel === 'email') {
-      const em = document.createElement('button');
-      em.className = 'copy send';
-      em.textContent = 'Send email';
-      em.onclick = async () => {
-        await sendEmailMessage(subjectInput ? subjectInput.value : '', body.value, em);
-        markChosen(entryId, i);
-      };
-      actions.append(em);
-    }
-
-    card.append(actions);
-    els.variants.append(card);
-  });
+  card.append(actions);
+  return card;
 }
 
 async function markChosen(entryId, i) {

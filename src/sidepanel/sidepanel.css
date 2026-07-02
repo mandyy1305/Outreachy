@@ -626,6 +626,57 @@ button.danger:hover {
   font-size: 12.5px;
 }
 
+/* ---- collapsible profile data section ---- */
+#review-details {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0 12px;
+  margin-bottom: 12px;
+}
+
+#review-details summary {
+  cursor: pointer;
+  font-weight: 700;
+  padding: 11px 2px;
+  list-style-position: inside;
+  user-select: none;
+}
+
+#review-details[open] summary {
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+
+#review-details > *:last-child {
+  margin-bottom: 12px;
+}
+
+/* ---- variant tabs ---- */
+.variant-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.variant-tab {
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  border-radius: var(--pill);
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--text-2);
+}
+
+.variant-tab.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-2);
+  font-weight: 700;
+}
+
 /* ---- people finder ---- */
 .person {
   background: var(--surface);
