@@ -1182,6 +1182,14 @@ async function refreshAccountBar(interactive = false) {
     els.accountStatus.textContent = '✉ Gmail: not signed in';
     els.accountAction.textContent = 'sign in';
     els.accountAction.onclick = () => refreshAccountBar(true);
+    // Surface WHY an explicit sign-in attempt failed (e.g. the OAuth client_id
+    // in manifest.json is still the placeholder / not created yet).
+    if (interactive) {
+      const detail = resp?.error || 'Google sign-in failed.';
+      showToast(/custom uri scheme|invalid.*client|bad client id/i.test(detail)
+        ? 'OAuth client not set up yet — see README "Gmail setup" (client_id in manifest.json is a placeholder)'
+        : detail);
+    }
   }
   els.accountAction.classList.remove('hidden');
 }
