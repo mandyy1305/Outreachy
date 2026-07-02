@@ -75,8 +75,15 @@ let foundEmails = []; // [{value, rating, subType}]
 let foundPhones = [];
 
 // ---- helpers -------------------------------------------------------------
-function sendMsg(message) {
-  return chrome.runtime.sendMessage(message);
+// Never throws: a dead message port (e.g. the service worker got killed while
+// we waited on a long interactive flow) resolves to {ok:false} instead of
+// leaving the caller's UI stuck on its "busy" text.
+async function sendMsg(message) {
+  try {
+    return await chrome.runtime.sendMessage(message);
+  } catch (e) {
+    return { ok: false, error: e?.message || 'Extension messaging failed — try reloading the extension.' };
+  }
 }
 
 async function getActiveTab() {
@@ -1208,7 +1215,17 @@ async function refreshAccountBar(interactive = false) {
   els.accountStatus.textContent = interactive ? '✉ opening Google sign-in…' : '✉ checking Gmail account…';
   els.accountAction.classList.add('hidden');
 
-  const resp = await sendMsg({ type: MSG.GMAIL_STATUS, payload: { interactive } });
+  // Interactive sign-in can legitimately take a while (user typing a password),
+  // but never let the footer hang forever if the flow dies silently.
+  const resp = await Promise.race([
+    sendMsg({ type: MSG.GMAIL_STATUS, payload: { interactive } }),
+    new Promise((resolve) =>
+      setTimeout(
+        () => resolve({ ok: false, error: 'Sign-in timed out — look for a hidden Google sign-in window, then try again.' }),
+        interactive ? 120000 : 15000,
+      ),
+    ),
+  ]);
 
   if (resp?.ok && resp.signedIn) {
     els.accountStatus.textContent = `✉ sending as ${resp.email}`;
