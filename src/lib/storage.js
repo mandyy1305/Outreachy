@@ -64,7 +64,7 @@ export const DEFAULT_SETTINGS = {
   promptTemplate: '', // optional full override of the built-in system prompt
   remoteStarContext: '', // optional override of the built-in RemoteStar context
   // Email appearance (see lib/email-designs.js).
-  emailDesign: 'clean', // 'plain' | 'clean' | 'card'
+  emailDesign: 'plain', // 'plain' (natural) | 'clean' | 'card' (designed)
   senderName: '', // shown in the styled email signature
   ctaUrl: '', // booking link for the "card" design's button (e.g. Calendly)
   // Company people finder: one search per line, run on the /people/ tab.

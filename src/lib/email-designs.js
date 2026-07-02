@@ -11,9 +11,11 @@ const BORDER = '#e6e9f2';
 const BG = '#f4f6fb';
 
 export const EMAIL_DESIGNS = [
-  { id: 'plain', name: 'Plain text (best deliverability)' },
-  { id: 'clean', name: 'Clean — typographic, subtle accent' },
-  { id: 'card', name: 'Card — branded header + call button' },
+  // 'plain' = natural: exactly what a hand-typed Gmail message looks like
+  // (text/plain, no wrapper) — often the best-performing look for cold email.
+  { id: 'plain', name: 'Natural — like a hand-typed mail' },
+  { id: 'clean', name: 'Designed — clean & minimal' },
+  { id: 'card', name: 'Designed — branded card + call button' },
 ];
 
 // -> html string, or null for the plain design (text-only email).

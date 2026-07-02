@@ -95,10 +95,14 @@
             <select id="f-template"></select>
           </label>
 
-          <label class="field hidden" id="design-field">
-            <span class="field-label">Email design</span>
-            <select id="f-design"></select>
-          </label>
+          <div class="field hidden" id="design-field">
+            <span class="field-label">Email look</span>
+            <div id="design-pills" class="pills" role="radiogroup" aria-label="Email look">
+              <button type="button" class="pill" data-design="plain" title="Plain text, exactly like a hand-typed mail — best deliverability">Natural</button>
+              <button type="button" class="pill" data-design="clean" title="Styled HTML: clean typography, subtle accent, signature">Clean</button>
+              <button type="button" class="pill" data-design="card" title="Branded card with RemoteStar header and a booking button">Card</button>
+            </div>
+          </div>
 
           <div id="contact-block" class="contact-block hidden">
             <div class="contact-row">

@@ -1,5 +1,5 @@
 import { MSG } from '../lib/messages.js';
-import { EMAIL_DESIGNS, renderEmailHtml } from '../lib/email-designs.js';
+import { renderEmailHtml } from '../lib/email-designs.js';
 import {
   getSettings,
   getHistory,
@@ -51,7 +51,7 @@ const els = {
   researchStatus: $('research-status'),
   fTemplate: $('f-template'),
   designField: $('design-field'),
-  fDesign: $('f-design'),
+  designPills: $('design-pills'),
   contactBlock: $('contact-block'),
   btnFindContact: $('btn-find-contact'),
   contactStatus: $('contact-status'),
@@ -399,25 +399,29 @@ function applyChannelUI() {
   if (lastVariants.length) renderVariants(lastVariants, currentEntryId, currentChannel);
 }
 
-// Design picker (email channel). Rendering needs the signature/CTA settings,
-// so keep the latest settings snapshot around.
+// Email look (natural vs designed). Rendering needs the signature/CTA
+// settings, so keep the latest settings snapshot around.
 let designSettings = { senderName: '', ctaUrl: '' };
+let currentDesign = 'plain';
+
+function setDesign(d) {
+  currentDesign = d;
+  els.designPills.querySelectorAll('.pill').forEach((p) => {
+    p.classList.toggle('active', p.dataset.design === d);
+  });
+  // Re-render so any open previews pick up the new look.
+  if (lastVariants.length) renderVariants(lastVariants, currentEntryId, currentChannel);
+}
 
 async function populateDesigns() {
   const s = await getSettings();
   designSettings = { senderName: s.senderName || '', ctaUrl: s.ctaUrl || '' };
-  els.fDesign.innerHTML = '';
-  for (const d of EMAIL_DESIGNS) {
-    const o = document.createElement('option');
-    o.value = d.id;
-    o.textContent = d.name;
-    els.fDesign.append(o);
-  }
-  els.fDesign.value = s.emailDesign || 'clean';
+  setDesign(s.emailDesign || 'plain');
 }
 
 function currentEmailHtml(bodyText) {
-  return renderEmailHtml(els.fDesign.value, {
+  // 'plain' (natural) returns null -> gmail.js sends text/plain only.
+  return renderEmailHtml(currentDesign, {
     bodyText,
     senderName: designSettings.senderName,
     ctaText: 'Book a quick call',
@@ -1328,10 +1332,9 @@ els.btnResearch.onclick = doResearch;
 els.channelPills.querySelectorAll('.pill').forEach((p) => {
   p.onclick = () => setChannel(p.dataset.channel);
 });
-els.fDesign.onchange = () => {
-  // Re-render so any open previews pick up the new design.
-  if (lastVariants.length) renderVariants(lastVariants, currentEntryId, currentChannel);
-};
+els.designPills.querySelectorAll('.pill').forEach((p) => {
+  p.onclick = () => setDesign(p.dataset.design);
+});
 els.btnBack.onclick = () => {
   setStage(resultsOrigin);
   if (resultsOrigin === 'detect') detectPage();
