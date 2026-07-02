@@ -14,7 +14,7 @@
     "https://www.googleapis.com/*"
   ],
   "oauth2": {
-    "client_id": "__REMOTESTAR_CLIENT_ID__.apps.googleusercontent.com",
+    "client_id": "419145443553-s4hppropctn8v606lr3qk5qkhdfmosg0.apps.googleusercontent.com",
     "scopes": [
       "https://www.googleapis.com/auth/gmail.send",
       "https://www.googleapis.com/auth/userinfo.email"
