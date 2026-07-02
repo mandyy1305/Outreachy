@@ -626,6 +626,39 @@ button.danger:hover {
   font-size: 12.5px;
 }
 
+/* ---- call notes ---- */
+.gen-row {
+  display: flex;
+  gap: 8px;
+}
+
+.gen-row .primary {
+  flex: 1;
+}
+
+.notes-snapshot {
+  margin: 6px 0;
+  color: var(--text-2);
+}
+
+.notes-heading {
+  margin-top: 10px;
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.notes-list {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.notes-list li {
+  margin-bottom: 5px;
+}
+
 /* ---- email design preview ---- */
 .variant-preview {
   width: 100%;

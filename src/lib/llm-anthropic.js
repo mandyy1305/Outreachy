@@ -12,9 +12,11 @@
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 
 /**
- * @returns {Promise<Array<{angle: string, message: string}>>}
+ * @returns {Promise<object>} The tool input matching `schema` — callers validate
+ * the shape they need (same contract as llm-openai.js).
  */
 export async function generate({ apiKey, model, system, user, schema, signal }) {
+  const toolName = schema.name || 'emit_result';
   let res;
   try {
     res = await fetch(ANTHROPIC_URL, {
@@ -32,12 +34,12 @@ export async function generate({ apiKey, model, system, user, schema, signal }) 
         messages: [{ role: 'user', content: user }],
         tools: [
           {
-            name: 'emit_variants',
-            description: 'Return the outreach message variants.',
+            name: toolName,
+            description: 'Return the structured result.',
             input_schema: schema.schema,
           },
         ],
-        tool_choice: { type: 'tool', name: 'emit_variants' },
+        tool_choice: { type: 'tool', name: toolName },
       }),
       signal,
     });
@@ -64,19 +66,14 @@ export async function generate({ apiKey, model, system, user, schema, signal }) 
 
   const data = await res.json();
   const toolUse = (data?.content || []).find(
-    (b) => b.type === 'tool_use' && b.name === 'emit_variants',
+    (b) => b.type === 'tool_use' && b.name === toolName,
   );
   if (!toolUse || !toolUse.input) {
     const err = new Error('Anthropic returned no structured output.');
     err.raw = JSON.stringify(data).slice(0, 500);
     throw err;
   }
-  if (!Array.isArray(toolUse.input.variants)) {
-    const err = new Error('Anthropic output did not contain a "variants" list.');
-    err.raw = JSON.stringify(toolUse.input).slice(0, 500);
-    throw err;
-  }
-  return toolUse.input.variants;
+  return toolUse.input;
 }
 
 function friendlyHttpError(status, detail) {

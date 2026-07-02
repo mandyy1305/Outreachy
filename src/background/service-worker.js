@@ -7,7 +7,13 @@
 
 import { MSG } from '../lib/messages.js';
 import { getSettings } from '../lib/storage.js';
-import { buildSystemPrompt, buildUserPrompt, VARIANTS_SCHEMA } from '../lib/prompt.js';
+import {
+  buildSystemPrompt,
+  buildUserPrompt,
+  buildCallNotesSystemPrompt,
+  VARIANTS_SCHEMA,
+  CALL_NOTES_SCHEMA,
+} from '../lib/prompt.js';
 import { generate as openaiGenerate } from '../lib/llm-openai.js';
 import { generate as anthropicGenerate } from '../lib/llm-anthropic.js';
 import { lookupContact } from '../lib/signalhire.js';
@@ -114,25 +120,46 @@ async function handleGenerate(payload) {
   }
 
   const gen = ADAPTERS[provider] || openaiGenerate;
+  const mode = payload.mode || 'messages';
   const template =
     (settings.templates || []).find((t) => t.id === payload.templateId) || null;
   const channel = payload.channel || settings.defaultChannel || 'linkedin';
-  const system = buildSystemPrompt(settings, template, channel);
+
+  const system =
+    mode === 'callnotes'
+      ? buildCallNotesSystemPrompt(settings)
+      : buildSystemPrompt(settings, template, channel);
   const user = buildUserPrompt(payload.scraped);
+  const schema = mode === 'callnotes' ? CALL_NOTES_SCHEMA : VARIANTS_SCHEMA;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 30000);
   try {
-    const variants = await gen({
+    const out = await gen({
       apiKey,
       model,
       temperature: settings.temperature,
       system,
       user,
-      schema: VARIANTS_SCHEMA,
+      schema,
       signal: controller.signal,
     });
-    return { variants, model, provider, templateName: template?.name || '' };
+
+    if (mode === 'callnotes') {
+      if (!out || typeof out.snapshot !== 'string') {
+        const err = new Error('Model output did not match the call-notes format.');
+        err.raw = JSON.stringify(out).slice(0, 500);
+        throw err;
+      }
+      return { notes: out, model, provider };
+    }
+
+    if (!Array.isArray(out?.variants)) {
+      const err = new Error('Model output did not contain a "variants" list.');
+      err.raw = JSON.stringify(out).slice(0, 500);
+      throw err;
+    }
+    return { variants: out.variants, model, provider, templateName: template?.name || '' };
   } finally {
     clearTimeout(timeout);
   }

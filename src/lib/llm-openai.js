@@ -5,7 +5,8 @@
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 
 /**
- * @returns {Promise<Array<{angle: string, message: string}>>}
+ * @returns {Promise<object>} The parsed JSON object matching `schema` — callers
+ * validate the shape they need (e.g. .variants for messages, sections for notes).
  * Throws Error with optional .status (HTTP) and .raw (unparsed model output).
  */
 export async function generate({ apiKey, model, temperature, system, user, schema, signal }) {
@@ -62,13 +63,7 @@ export async function generate({ apiKey, model, temperature, system, user, schem
     err.raw = content;
     throw err;
   }
-
-  if (!Array.isArray(parsed.variants)) {
-    const err = new Error('Model output did not contain a "variants" list.');
-    err.raw = content;
-    throw err;
-  }
-  return parsed.variants;
+  return parsed;
 }
 
 function friendlyHttpError(status, detail) {

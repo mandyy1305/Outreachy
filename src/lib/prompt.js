@@ -37,6 +37,72 @@ export const VARIANTS_SCHEMA = {
   },
 };
 
+// Call-prep notes: a structured brief for a sales/discovery call with the
+// prospect. Same adapters as message generation, different schema + prompt.
+export const CALL_NOTES_SCHEMA = {
+  name: 'call_notes',
+  strict: true,
+  schema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['snapshot', 'hooks', 'pitchAngles', 'discoveryQuestions', 'objections', 'nextStep'],
+    properties: {
+      snapshot: { type: 'string' }, // who they are + company, 2-3 sentences
+      hooks: { type: 'array', items: { type: 'string' } }, // why-them-why-now openers
+      pitchAngles: {
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['angle', 'talkTrack'],
+          properties: {
+            angle: { type: 'string' }, // RemoteStar differentiator to lead with
+            talkTrack: { type: 'string' }, // 1-2 sentences, in the caller's voice
+          },
+        },
+      },
+      discoveryQuestions: { type: 'array', items: { type: 'string' } },
+      objections: {
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['objection', 'response'],
+          properties: {
+            objection: { type: 'string' },
+            response: { type: 'string' },
+          },
+        },
+      },
+      nextStep: { type: 'string' }, // the concrete ask to close the call with
+    },
+  },
+};
+
+export function buildCallNotesSystemPrompt(settings) {
+  const ctx =
+    settings.remoteStarContext && settings.remoteStarContext.trim()
+      ? settings.remoteStarContext.trim()
+      : REMOTESTAR_CONTEXT;
+
+  return `You prepare call notes for a RemoteStar business-development rep about to get on a call with a prospect. The notes are for the REP's eyes only — practical, specific, skimmable during a live call. Plain conversational language, no fluff, no generic sales advice.
+
+ABOUT REMOTESTAR:
+${ctx}
+
+Build the notes strictly from the provided profile/company/research data — never invent facts. Where data is thin, keep sections short rather than padding them.
+
+Sections:
+- snapshot: who this person is and where they work, 2-3 sentences.
+- hooks: 2-4 specific why-them-why-now conversation openers drawn from their posts, role, or company signals.
+- pitchAngles: 2-3, each pairing ONE RemoteStar differentiator (CTO-led screening, AI interview platform, speed, pay-on-hire) with a 1-2 sentence talk track tailored to THIS prospect's likely hiring pain.
+- discoveryQuestions: 3-5 open questions to understand their hiring process, volume, and pain.
+- objections: the 2-4 pushbacks THIS prospect is most likely to raise (given their role/company stage), each with a concise, honest response.
+- nextStep: the one concrete ask to end the call with.
+
+Return ONLY JSON matching the provided schema.`;
+}
+
 // Builds the MESSAGE TYPE block from the selected template: its name, its
 // goal/approach instructions, and the user's example messages. Each example is
 // kept whole (paragraphs intact) and separated by a delimiter — never collapsed.

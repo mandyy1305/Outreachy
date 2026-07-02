@@ -41,8 +41,10 @@ const els = {
   emailCount: $('email-count'),
   phoneCount: $('phone-count'),
   btnGenerate: $('btn-generate'),
+  btnCallNotes: $('btn-callnotes'),
   genStatus: $('gen-status'),
   variants: $('variants'),
+  callnotes: $('callnotes'),
   historySearch: $('history-search'),
   historyList: $('history-list'),
   historyCount: $('history-count'),
@@ -199,6 +201,8 @@ async function doScrape() {
   foundPhones = [];
   renderContacts();
   els.variants.innerHTML = '';
+  els.callnotes.innerHTML = '';
+  els.callnotes.classList.add('hidden');
   els.genStatus.textContent = '';
   els.contactStatus.textContent = '';
 }
@@ -432,6 +436,7 @@ async function doGenerate() {
   els.genStatus.className = 'status busy';
   els.genStatus.textContent = 'Generating messages…';
   els.variants.innerHTML = '';
+  els.callnotes.classList.add('hidden');
 
   const resp = await sendMsg({ type: MSG.GENERATE, payload: { scraped, templateId, channel } });
 
@@ -483,6 +488,155 @@ async function doGenerate() {
   lastVariants = variants;
 
   renderVariants(variants, entry.id, channel);
+}
+
+// ---- call-prep notes -------------------------------------------------------
+function currentScraped() {
+  return {
+    name: els.fName.value.trim(),
+    headline: els.fHeadline.value.trim(),
+    experience: els.fExperience.value.trim(),
+    about: els.fAbout.value.trim(),
+    activity: els.fActivity.value.trim(),
+  };
+}
+
+function notesToMarkdown(name, n) {
+  const lines = [`# Call notes — ${name || 'prospect'}`, '', n.snapshot || '', ''];
+  if (n.hooks?.length) lines.push('## Hooks', ...n.hooks.map((h) => `- ${h}`), '');
+  if (n.pitchAngles?.length) {
+    lines.push('## Pitch angles');
+    for (const p of n.pitchAngles) lines.push(`- **${p.angle}** — ${p.talkTrack}`);
+    lines.push('');
+  }
+  if (n.discoveryQuestions?.length)
+    lines.push('## Discovery questions', ...n.discoveryQuestions.map((q) => `- ${q}`), '');
+  if (n.objections?.length) {
+    lines.push('## Likely objections');
+    for (const o of n.objections) lines.push(`- **"${o.objection}"** → ${o.response}`);
+    lines.push('');
+  }
+  if (n.nextStep) lines.push('## Next step', n.nextStep);
+  return lines.join('\n');
+}
+
+async function doGenerateNotes() {
+  const scraped = currentScraped();
+
+  els.btnCallNotes.disabled = true;
+  els.genStatus.className = 'status busy';
+  els.genStatus.textContent = 'Preparing call notes…';
+  els.callnotes.classList.add('hidden');
+
+  const resp = await sendMsg({ type: MSG.GENERATE, payload: { scraped, mode: 'callnotes' } });
+
+  els.btnCallNotes.disabled = false;
+  if (!resp?.ok) {
+    els.genStatus.className = 'status error';
+    els.genStatus.textContent =
+      resp?.code === 'NO_KEY' ? 'No API key set — add one in Settings (⚙).' : resp?.error || 'Call notes failed.';
+    return;
+  }
+
+  els.genStatus.className = 'status';
+  els.genStatus.textContent = '';
+  renderCallNotes(scraped.name, resp.notes);
+
+  await addHistoryEntry({
+    id: crypto.randomUUID(),
+    kind: 'callnotes',
+    name: scraped.name || '(unknown)',
+    profileUrl: currentProfileUrl || '',
+    headline: scraped.headline || '',
+    scrapedSnapshot: scraped,
+    scrapedAt: new Date().toISOString(),
+    provider: resp.provider || '',
+    model: resp.model || '',
+    notes: resp.notes,
+  });
+}
+
+function notesSection(title, items, renderItem) {
+  if (!items || !items.length) return null;
+  const wrap = document.createElement('div');
+  wrap.className = 'notes-section';
+  const h = document.createElement('div');
+  h.className = 'notes-heading';
+  h.textContent = title;
+  wrap.append(h);
+  const ul = document.createElement('ul');
+  ul.className = 'notes-list';
+  for (const it of items) {
+    const li = document.createElement('li');
+    renderItem(li, it);
+    ul.append(li);
+  }
+  wrap.append(ul);
+  return wrap;
+}
+
+function renderCallNotes(name, n) {
+  els.callnotes.innerHTML = '';
+  els.callnotes.classList.remove('hidden');
+
+  const card = document.createElement('div');
+  card.className = 'variant notes-card';
+
+  const head = document.createElement('div');
+  head.className = 'variant-head';
+  const title = document.createElement('span');
+  title.className = 'variant-angle';
+  title.textContent = `📋 Call notes — ${name || 'prospect'}`;
+  head.append(title);
+  card.append(head);
+
+  const snap = document.createElement('p');
+  snap.className = 'notes-snapshot';
+  snap.textContent = n.snapshot || '';
+  card.append(snap);
+
+  const sections = [
+    notesSection('Hooks', n.hooks, (li, h) => (li.textContent = h)),
+    notesSection('Pitch angles', n.pitchAngles, (li, p) => {
+      const b = document.createElement('strong');
+      b.textContent = p.angle;
+      li.append(b, ` — ${p.talkTrack}`);
+    }),
+    notesSection('Discovery questions', n.discoveryQuestions, (li, q) => (li.textContent = q)),
+    notesSection('Likely objections', n.objections, (li, o) => {
+      const b = document.createElement('strong');
+      b.textContent = `"${o.objection}"`;
+      li.append(b, ` → ${o.response}`);
+    }),
+  ].filter(Boolean);
+  sections.forEach((s) => card.append(s));
+
+  if (n.nextStep) {
+    const ns = document.createElement('div');
+    ns.className = 'notes-section';
+    const h = document.createElement('div');
+    h.className = 'notes-heading';
+    h.textContent = 'Next step';
+    const p = document.createElement('p');
+    p.className = 'notes-snapshot';
+    p.textContent = n.nextStep;
+    ns.append(h, p);
+    card.append(ns);
+  }
+
+  const actions = document.createElement('div');
+  actions.className = 'variant-actions';
+  const copyBtn = document.createElement('button');
+  copyBtn.className = 'copy';
+  copyBtn.textContent = 'Copy as markdown';
+  copyBtn.onclick = async () => {
+    const ok = await copyToClipboard(notesToMarkdown(name, n));
+    showToast(ok ? 'Notes copied' : 'Copy failed');
+  };
+  actions.append(copyBtn);
+  card.append(actions);
+
+  els.callnotes.append(card);
 }
 
 function renderVariants(variants, entryId, channel) {
@@ -635,6 +789,7 @@ async function renderHistory() {
 }
 
 function renderHistoryCard(e) {
+  if (e.kind === 'callnotes') return renderNotesHistoryCard(e);
   const chosen =
     e.chosenVariantIndex != null && e.variants[e.chosenVariantIndex]
       ? e.variants[e.chosenVariantIndex]
@@ -722,6 +877,55 @@ function renderHistoryCard(e) {
   return card;
 }
 
+function renderNotesHistoryCard(e) {
+  const card = document.createElement('div');
+  card.className = 'hist';
+
+  const top = document.createElement('div');
+  top.className = 'hist-top';
+  const name = document.createElement('div');
+  name.className = 'hist-name';
+  name.textContent = `📋 ${e.name}`;
+  top.append(name);
+
+  const meta = document.createElement('div');
+  meta.className = 'hist-meta';
+  meta.append(document.createTextNode([e.headline, 'call notes', fmtDate(e.scrapedAt)].filter(Boolean).join(' · ') + ' '));
+  if (e.profileUrl) {
+    const a = document.createElement('a');
+    a.href = e.profileUrl;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.textContent = 'profile ↗';
+    meta.append(a);
+  }
+
+  const snippet = document.createElement('div');
+  snippet.className = 'hist-snippet';
+  snippet.textContent = e.notes?.snapshot || '';
+
+  const actions = document.createElement('div');
+  actions.className = 'hist-actions';
+  const copyBtn = document.createElement('button');
+  copyBtn.className = 'small';
+  copyBtn.textContent = 'Copy as markdown';
+  copyBtn.onclick = async () => {
+    const ok = await copyToClipboard(notesToMarkdown(e.name, e.notes || {}));
+    showToast(ok ? 'Notes copied' : 'Copy failed');
+  };
+  const delBtn = document.createElement('button');
+  delBtn.className = 'danger';
+  delBtn.textContent = 'Delete';
+  delBtn.onclick = async () => {
+    await deleteHistoryEntry(e.id);
+    renderHistory();
+  };
+  actions.append(copyBtn, delBtn);
+
+  card.append(top, meta, snippet, actions);
+  return card;
+}
+
 // ---- history export / import --------------------------------------------
 async function exportHistory() {
   const hist = await getHistory();
@@ -789,6 +993,7 @@ els.fDesign.onchange = () => {
 };
 els.btnFindContact.onclick = doFindContact;
 els.btnGenerate.onclick = doGenerate;
+els.btnCallNotes.onclick = doGenerateNotes;
 els.btnExport.onclick = exportHistory;
 els.btnImport.onclick = () => els.importFile.click();
 els.importFile.onchange = (e) => {
