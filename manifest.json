@@ -1,19 +1,24 @@
 {
   "manifest_version": 3,
   "name": "RemoteStar Outreach Assistant",
-  "version": "0.1.0",
-  "description": "Generate personalized LinkedIn outreach messages for RemoteStar from the profile you're viewing.",
-  "permissions": ["storage", "activeTab", "scripting", "sidePanel", "identity"],
+  "version": "0.2.0",
+  "description": "Find, research, and reach the right people to pitch RemoteStar — from the LinkedIn page you're viewing.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAw2kC6EAwOTGa1tL850YcxFNifVTI2z2EzMFnACX6Imwt4rIEHQeFZvAz0NV+wsa+0HeOJZ0JfjtcfE4sMcvY3WUxC0ClJ+7Rb8f9PoSjZEFi+8V+Ny7mYjsNiHzCypjoTrIZhmCuQjOpUB87wcdLw9UUAli9WdU+9Tr5XxOyMB+ScVPWt/XMUyzRqSaawjak/lWsd7FkHbmfLpVWQ+bwWp4fJ+TjnjH8wHEzUfToWNbJBdufj7g1Az38TsHm4g0qROgXb9CCyRJJXAAyt3CFI54G8VZe08dghoV4j54ZcNtRvdjVJiXWI3DN625zDKw1WKQoRWtBYPaqDyhtA6WEywIDAQAB",
+  "permissions": ["storage", "activeTab", "scripting", "sidePanel", "identity", "identity.email"],
   "host_permissions": [
     "https://www.linkedin.com/*",
     "https://api.openai.com/*",
     "https://api.anthropic.com/*",
     "https://www.signalhire.com/*",
-    "https://gmail.googleapis.com/*"
+    "https://gmail.googleapis.com/*",
+    "https://www.googleapis.com/*"
   ],
   "oauth2": {
-    "client_id": "546782827169-25oetuudd5v2s48fbbr18p9qkr2a5opq.apps.googleusercontent.com",
-    "scopes": ["https://www.googleapis.com/auth/gmail.send"]
+    "client_id": "__REMOTESTAR_CLIENT_ID__.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/gmail.send",
+      "https://www.googleapis.com/auth/userinfo.email"
+    ]
   },
   "background": {
     "service_worker": "src/background/service-worker.js",

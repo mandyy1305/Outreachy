@@ -11,7 +11,7 @@ import { buildSystemPrompt, buildUserPrompt, VARIANTS_SCHEMA } from '../lib/prom
 import { generate as openaiGenerate } from '../lib/llm-openai.js';
 import { generate as anthropicGenerate } from '../lib/llm-anthropic.js';
 import { lookupContact } from '../lib/signalhire.js';
-import { sendEmail } from '../lib/gmail.js';
+import { sendEmail, getAccountStatus, signOut } from '../lib/gmail.js';
 
 const ADAPTERS = { openai: openaiGenerate, anthropic: anthropicGenerate };
 
@@ -50,6 +50,18 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
   if (msg?.type === MSG.SEND_EMAIL) {
     sendEmail(msg.payload || {})
+      .then(() => sendResponse({ ok: true }))
+      .catch((e) => sendResponse({ ok: false, error: e.message }));
+    return true;
+  }
+  if (msg?.type === MSG.GMAIL_STATUS) {
+    getAccountStatus(!!msg.payload?.interactive)
+      .then((status) => sendResponse({ ok: true, ...status }))
+      .catch((e) => sendResponse({ ok: false, error: e.message }));
+    return true;
+  }
+  if (msg?.type === MSG.GMAIL_SIGNOUT) {
+    signOut()
       .then(() => sendResponse({ ok: true }))
       .catch((e) => sendResponse({ ok: false, error: e.message }));
     return true;

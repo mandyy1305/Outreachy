@@ -13,6 +13,11 @@ export const MSG = {
   FIND_CONTACT: 'FIND_CONTACT',
   // Side panel -> service worker: send an email via the Gmail API.
   SEND_EMAIL: 'SEND_EMAIL',
+  // Side panel -> service worker: which Google account is Gmail using?
+  // payload: { interactive?: boolean } — interactive triggers the sign-in popup.
+  GMAIL_STATUS: 'GMAIL_STATUS',
+  // Side panel -> service worker: forget the cached Google token.
+  GMAIL_SIGNOUT: 'GMAIL_SIGNOUT',
 };
 
 // Outreach channels.

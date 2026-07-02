@@ -626,6 +626,27 @@ button.danger:hover {
   font-size: 12.5px;
 }
 
+/* ---- Gmail account footer ---- */
+.account-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: saturate(1.4) blur(10px);
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.account-bar .muted {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ---- toast ---- */
 .toast {
   position: fixed;

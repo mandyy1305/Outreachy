@@ -47,6 +47,8 @@ const els = {
   btnImport: $('btn-import'),
   importFile: $('import-file'),
   btnClearHistory: $('btn-clear-history'),
+  accountStatus: $('account-status'),
+  accountAction: $('account-action'),
   toast: $('toast'),
 };
 
@@ -687,6 +689,30 @@ async function importHistoryFile(file) {
   }
 }
 
+// ---- Gmail account footer -------------------------------------------------
+// Shows which Google account "Send email" will send from. Every teammate signs
+// in with their own @remotestar.io account; switching = sign out + re-auth.
+async function refreshAccountBar(interactive = false) {
+  els.accountStatus.textContent = interactive ? '✉ opening Google sign-in…' : '✉ checking Gmail account…';
+  els.accountAction.classList.add('hidden');
+
+  const resp = await sendMsg({ type: MSG.GMAIL_STATUS, payload: { interactive } });
+
+  if (resp?.ok && resp.signedIn) {
+    els.accountStatus.textContent = `✉ sending as ${resp.email}`;
+    els.accountAction.textContent = 'switch';
+    els.accountAction.onclick = async () => {
+      await sendMsg({ type: MSG.GMAIL_SIGNOUT });
+      refreshAccountBar(true);
+    };
+  } else {
+    els.accountStatus.textContent = '✉ Gmail: not signed in';
+    els.accountAction.textContent = 'sign in';
+    els.accountAction.onclick = () => refreshAccountBar(true);
+  }
+  els.accountAction.classList.remove('hidden');
+}
+
 // ---- wire up -------------------------------------------------------------
 els.tabCompose.onclick = () => showView('compose');
 els.tabHistory.onclick = () => showView('history');
@@ -717,6 +743,7 @@ chrome.tabs.onUpdated.addListener((_id, info) => {
 
 detectPage();
 populateTemplates();
+refreshAccountBar();
 getSettings().then((s) => {
   els.fChannel.value = s.defaultChannel || 'linkedin';
   applyChannelUI();

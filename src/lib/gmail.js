@@ -1,12 +1,56 @@
 // Gmail send via the Gmail REST API. OAuth is handled by chrome.identity using
-// the manifest `oauth2` block (client_id + gmail.send scope). Runs in the
-// service worker (chrome.identity is available there, not in content scripts).
+// the manifest `oauth2` block (client_id + scopes). Runs in the service worker
+// (chrome.identity is available there, not in content scripts).
 //
-// Setup is documented in the README: create a Google Cloud OAuth client of type
-// "Chrome Extension" for this extension's ID, enable the Gmail API, and put the
-// client_id in manifest.json's oauth2.client_id.
+// Multi-user: mail is sent as WHOEVER granted the token (`users/me`), so each
+// teammate signs in with their own @remotestar.io account. Setup is documented
+// in the README: an Internal-consent OAuth client of type "Chrome Extension"
+// bound to this extension's pinned ID (see "key" in manifest.json).
 
 const SEND_URL = 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send';
+const USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
+
+// Who is Gmail configured to send as right now?
+//   { signedIn: true, email }       — token available (silently or cached)
+//   { signedIn: false, error? }     — needs interactive sign-in (or bad client_id)
+// interactive=true triggers the Google sign-in popup when needed.
+export async function getAccountStatus(interactive = false) {
+  let token;
+  try {
+    token = await getToken(interactive);
+  } catch (e) {
+    return { signedIn: false, error: e.message };
+  }
+  try {
+    const res = await fetch(USERINFO_URL, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) throw new Error(`userinfo ${res.status}`);
+    const j = await res.json();
+    return { signedIn: true, email: j.email || '(unknown account)' };
+  } catch (e) {
+    // Token exists but userinfo failed (e.g. scope not granted yet on an old
+    // cached token) — drop it so the next attempt re-consents cleanly.
+    await removeCachedToken(token);
+    return { signedIn: false, error: e.message };
+  }
+}
+
+// Forget the cached token so the next send/sign-in picks an account fresh.
+export async function signOut() {
+  try {
+    const token = await getToken(false);
+    if (token) await removeCachedToken(token);
+  } catch {
+    /* nothing cached */
+  }
+  await new Promise((resolve) => {
+    try {
+      chrome.identity.clearAllCachedAuthTokens(resolve);
+    } catch {
+      resolve();
+    }
+  });
+  return true;
+}
 
 export async function sendEmail({ to, subject, body }) {
   if (!to) throw new Error('No recipient email address.');
