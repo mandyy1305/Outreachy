@@ -206,6 +206,11 @@ export function buildSystemPrompt(settings, template, channel) {
       .replaceAll('{{CHANNEL}}', channelText);
   }
 
+  const sender = val(settings.senderName);
+  const senderSection = sender
+    ? `\n\nSENDER: You write as ${sender} from RemoteStar. When a sign-off is called for, sign with "${sender.split(' ')[0]}". NEVER write "[Your Name]" or any bracketed placeholder.`
+    : `\n\nSENDER: The sender's name is not configured. End messages with the sign-off word alone (e.g. "best,") and no name — NEVER write "[Your Name]" or any bracketed placeholder.`;
+
   const styleSection = base ? `\n\nBASE WRITING STYLE (applies to every message):\n${base}` : '';
   const typeSection = typeBlock ? `\n\n${typeBlock}` : '';
   const rulesSection = rules
@@ -217,7 +222,7 @@ export function buildSystemPrompt(settings, template, channel) {
 ${channelText}
 
 ABOUT REMOTESTAR (use only what's relevant to the message type):
-${ctx}
+${ctx}${senderSection}
 
 GENERAL RULES:
 - Match the length and format of the example messages for this template. If there are no examples, keep it to 3-5 sentences (~60-110 words). Multi-paragraph is fine when the examples are.
