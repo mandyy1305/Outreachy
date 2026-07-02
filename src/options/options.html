@@ -145,6 +145,18 @@
       <button id="save" class="primary" type="button">Save settings</button>
       <p id="status" class="status"></p>
 
+      <fieldset class="group">
+        <legend>Team setup</legend>
+        <p class="hint">
+          One person configures everything on this page, exports, and shares the file —
+          teammates import it and only change "Your name". ⚠ The export contains the
+          API keys, so share it privately (DM, not a public channel).
+        </p>
+        <button id="export-settings" class="small" type="button">Export settings</button>
+        <button id="import-settings" class="small" type="button">Import settings</button>
+        <input id="import-settings-file" type="file" accept="application/json" hidden />
+      </fieldset>
+
       <hr />
       <p class="disclaimer">
         This tool reads the LinkedIn profile page you are viewing, at your request, to help you

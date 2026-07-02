@@ -127,6 +127,42 @@ el.addTemplate.addEventListener('click', () => {
   refreshDefaultSelect();
 });
 
+// ---- team setup: settings export / import ---------------------------------
+// Everything in one JSON file (INCLUDING API keys — share privately). Import
+// overwrites all settings except senderName, which stays personal.
+$('export-settings').addEventListener('click', async () => {
+  const s = await getSettings();
+  const blob = new Blob([JSON.stringify(s, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'remotestar-outreach-settings.json';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+$('import-settings').addEventListener('click', () => $('import-settings-file').click());
+$('import-settings-file').addEventListener('change', async (e) => {
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const incoming = JSON.parse(await file.text());
+    if (!incoming || typeof incoming !== 'object' || !('provider' in incoming)) {
+      throw new Error('not a settings file');
+    }
+    const mine = await getSettings();
+    delete incoming.senderName; // keep the teammate's own signature name
+    await saveSettings({ ...incoming, senderName: mine.senderName });
+    await load(); // re-render the form with imported values
+    el.status.className = 'status ok';
+    el.status.textContent = 'Settings imported — set "Your name" and save.';
+  } catch {
+    el.status.className = 'status error';
+    el.status.textContent = 'Import failed — that does not look like a settings export.';
+  }
+});
+
 // ---- load / save ---------------------------------------------------------
 async function load() {
   const s = await getSettings();
