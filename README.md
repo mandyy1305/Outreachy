@@ -132,12 +132,16 @@ for everyone. A Workspace admin sets it up once:
    (Internal = only @remotestar.io accounts can use it, no Google verification,
    no test-user list needed — this is what makes it team-wide.)
    Add the scopes `gmail.send` and `userinfo.email`.
-3. **APIs & Services → Credentials → Create credentials → OAuth client ID →
-   Application type: Chrome Extension**, extension ID
-   `hfiknggcdepgdcinpjeigblhnllckbag`.
+3. **Clients → Create client → Application type: Web application** and add this
+   **Authorized redirect URI**:
+   `https://hfiknggcdepgdcinpjeigblhnllckbag.chromiumapp.org/`
+   ("Web application" is correct even though this is an extension — sign-in
+   runs through `launchWebAuthFlow`, which shows a normal Google account
+   chooser so users can send from their work account no matter which account
+   Chrome itself is signed into.)
 4. Paste the generated **client ID** into `manifest.json` →
-   `"oauth2": { "client_id": "…apps.googleusercontent.com" }` (replacing the
-   `__REMOTESTAR_CLIENT_ID__` placeholder), commit, and have everyone reload.
+   `"oauth2": { "client_id": "…apps.googleusercontent.com" }`, commit, and have
+   everyone reload.
 5. First **Send email** (or clicking **sign in** in the footer), Google asks each
    user to sign in and grant `gmail.send`. Done.
 

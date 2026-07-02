@@ -1,14 +1,24 @@
-// Gmail send via the Gmail REST API. OAuth is handled by chrome.identity using
-// the manifest `oauth2` block (client_id + scopes). Runs in the service worker
-// (chrome.identity is available there, not in content scripts).
+// Gmail send via the Gmail REST API. OAuth uses chrome.identity.launchWebAuthFlow
+// (NOT getAuthToken): it pops a normal Google account chooser, so users pick any
+// Google account — independent of which account Chrome-the-browser is signed
+// into. Crucial for teammates who keep a personal account as their Chrome
+// identity but send work mail from @remotestar.io.
 //
-// Multi-user: mail is sent as WHOEVER granted the token (`users/me`), so each
-// teammate signs in with their own @remotestar.io account. Setup is documented
-// in the README: an Internal-consent OAuth client of type "Chrome Extension"
-// bound to this extension's pinned ID (see "key" in manifest.json).
+// Token model: implicit grant (response_type=token, ~1h expiry) cached in
+// chrome.storage.local. Renewal is silent (prompt=none) while the user has a
+// live Google web session for that account; otherwise we re-prompt.
+//
+// GCP setup (README): OAuth client of type "Web application" whose authorized
+// redirect URI is this extension's chromiumapp.org URL. The client_id lives in
+// manifest.json's oauth2 block.
 
 const SEND_URL = 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send';
 const USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
+const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
+const TOKEN_KEY = 'gmailToken';
+
+const CLIENT_ID = chrome.runtime.getManifest().oauth2.client_id;
+const SCOPES = chrome.runtime.getManifest().oauth2.scopes.join(' ');
 
 // Who is Gmail configured to send as right now?
 //   { signedIn: true, email }       — token available (silently or cached)
@@ -44,21 +54,11 @@ export async function getAccountStatus(interactive = false) {
   }
 }
 
-// Forget the cached token so the next send/sign-in picks an account fresh.
+// Forget the cached token so the next send/sign-in picks an account fresh
+// (the interactive flow uses prompt=select_account, so switching = sign out
+// then sign in and pick the other account).
 export async function signOut() {
-  try {
-    const token = await getToken(false);
-    if (token) await removeCachedToken(token);
-  } catch {
-    /* nothing cached */
-  }
-  await new Promise((resolve) => {
-    try {
-      chrome.identity.clearAllCachedAuthTokens(resolve);
-    } catch {
-      resolve();
-    }
-  });
+  await chrome.storage.local.remove(TOKEN_KEY);
   return true;
 }
 
@@ -89,36 +89,62 @@ export async function sendEmail({ to, subject, body, html }) {
   return true;
 }
 
-function getToken(interactive) {
-  return new Promise((resolve, reject) => {
-    try {
-      chrome.identity.getAuthToken({ interactive }, (token) => {
-        const err = chrome.runtime.lastError;
-        if (err || !token) {
-          reject(
-            new Error(
-              (err && err.message) ||
-                'Could not get a Google auth token. Is the OAuth client_id set in manifest.json and the Gmail API enabled?',
-            ),
-          );
-        } else {
-          resolve(token);
-        }
-      });
-    } catch (e) {
-      reject(new Error(`chrome.identity unavailable: ${e.message}`));
-    }
-  });
+async function storedToken() {
+  const o = await chrome.storage.local.get(TOKEN_KEY);
+  const t = o[TOKEN_KEY];
+  // 60s safety margin so we never hand out a token that dies mid-request.
+  return t && t.token && t.expiry > Date.now() + 60000 ? t.token : null;
 }
 
-function removeCachedToken(token) {
-  return new Promise((resolve) => {
-    try {
-      chrome.identity.removeCachedAuthToken({ token }, resolve);
-    } catch {
-      resolve();
-    }
+function buildAuthUrl(interactive) {
+  const p = new URLSearchParams({
+    client_id: CLIENT_ID,
+    response_type: 'token',
+    redirect_uri: chrome.identity.getRedirectURL(),
+    scope: SCOPES,
+    // select_account = always show the chooser, so users can pick their work
+    // account even when a personal one is also signed in. none = silent renew.
+    prompt: interactive ? 'select_account' : 'none',
   });
+  return `${AUTH_URL}?${p}`;
+}
+
+async function webAuth(interactive) {
+  let redirect;
+  try {
+    redirect = await chrome.identity.launchWebAuthFlow({
+      url: buildAuthUrl(interactive),
+      interactive,
+    });
+  } catch (e) {
+    throw new Error(
+      interactive
+        ? `Google sign-in did not complete: ${e.message || 'window closed'}`
+        : 'Silent sign-in unavailable.',
+    );
+  }
+  if (!redirect) throw new Error('Google sign-in returned no response.');
+  const params = new URLSearchParams(new URL(redirect).hash.replace(/^#/, ''));
+  const token = params.get('access_token');
+  if (!token) throw new Error(`Google returned no token (${params.get('error') || 'unknown error'}).`);
+  const expiresIn = parseInt(params.get('expires_in') || '3600', 10);
+  await chrome.storage.local.set({ [TOKEN_KEY]: { token, expiry: Date.now() + expiresIn * 1000 } });
+  return token;
+}
+
+async function getToken(interactive) {
+  const cached = await storedToken();
+  if (cached) return cached;
+  try {
+    return await webAuth(false); // silent renew off the Google web session
+  } catch {
+    if (!interactive) throw new Error('Not signed in.');
+  }
+  return webAuth(true);
+}
+
+function removeCachedToken() {
+  return chrome.storage.local.remove(TOKEN_KEY);
 }
 
 function postSend(token, raw) {
