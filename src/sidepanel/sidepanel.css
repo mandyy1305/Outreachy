@@ -36,6 +36,15 @@ body {
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
+  /* Full-height column so the account footer sits at the panel bottom even
+     when content is short (sticky alone only pins during overflow). */
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.view {
+  flex: 1;
 }
 
 /* ---- header ---- */
