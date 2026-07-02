@@ -626,6 +626,42 @@ button.danger:hover {
   font-size: 12.5px;
 }
 
+/* ---- people finder ---- */
+.person {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+
+.person-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.person-name {
+  font-weight: 700;
+}
+
+.person-title {
+  color: var(--text-2);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.person-why {
+  margin-top: 6px;
+}
+
+.person-angle {
+  margin-top: 4px;
+  color: var(--text-2);
+  font-style: italic;
+}
+
 /* ---- call notes ---- */
 .gen-row {
   display: flex;

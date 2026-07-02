@@ -11,6 +11,7 @@ import {
 } from '../lib/storage.js';
 
 const PROFILE_RE = /^https?:\/\/(www\.)?linkedin\.com\/in\//i;
+const COMPANY_RE = /^https?:\/\/(www\.)?linkedin\.com\/company\/[^/?#]+/i;
 
 // ---- element refs --------------------------------------------------------
 const $ = (id) => document.getElementById(id);
@@ -22,6 +23,10 @@ const els = {
   viewHistory: $('view-history'),
   pageStatus: $('page-status'),
   btnScrape: $('btn-scrape'),
+  companyBlock: $('company-block'),
+  btnFindPeople: $('btn-find-people'),
+  peopleStatus: $('people-status'),
+  peopleList: $('people-list'),
   review: $('review'),
   fName: $('f-name'),
   fHeadline: $('f-headline'),
@@ -135,14 +140,110 @@ function showView(which) {
 async function detectPage() {
   const tab = await getActiveTab();
   const url = tab?.url || '';
+  const isCompany = COMPANY_RE.test(url);
+  els.companyBlock.classList.toggle('hidden', !isCompany);
+  els.btnScrape.classList.toggle('hidden', isCompany);
   if (PROFILE_RE.test(url)) {
     els.pageStatus.textContent = 'LinkedIn profile detected — ready to scrape.';
     els.pageStatus.classList.remove('error');
     els.btnScrape.disabled = false;
+  } else if (isCompany) {
+    els.pageStatus.textContent = 'LinkedIn company page detected.';
+    els.pageStatus.classList.remove('error');
   } else {
-    els.pageStatus.textContent = 'Open a LinkedIn profile (linkedin.com/in/…) to begin.';
+    els.pageStatus.textContent = 'Open a LinkedIn profile (linkedin.com/in/…) or company page to begin.';
     els.pageStatus.classList.remove('error');
     els.btnScrape.disabled = true;
+  }
+}
+
+// ---- company people finder -------------------------------------------------
+async function doFindPeople() {
+  const tab = await getActiveTab();
+  if (!tab || !COMPANY_RE.test(tab.url || '')) {
+    showToast('Open a LinkedIn company page first');
+    return;
+  }
+  els.btnFindPeople.disabled = true;
+  els.peopleStatus.className = 'status busy';
+  els.peopleStatus.textContent = 'Searching people… (opens background tabs, one search at a time — this takes a minute)';
+  els.peopleList.innerHTML = '';
+
+  const resp = await sendMsg({
+    type: MSG.FIND_PEOPLE,
+    payload: { tabId: tab.id, companyUrl: tab.url },
+  });
+
+  els.btnFindPeople.disabled = false;
+  if (!resp?.ok) {
+    els.peopleStatus.className = 'status error';
+    els.peopleStatus.textContent = resp?.error || 'People search failed.';
+    return;
+  }
+
+  const people = resp.people || [];
+  els.peopleStatus.className = 'status';
+  els.peopleStatus.textContent = `${people.length} people found at ${resp.company?.name || 'this company'} — ranked by fit.`;
+  renderPeople(people);
+
+  await addHistoryEntry({
+    id: crypto.randomUUID(),
+    kind: 'people',
+    name: resp.company?.name || '(company)',
+    profileUrl: tab.url,
+    headline: resp.company?.tagline || '',
+    scrapedAt: new Date().toISOString(),
+    company: resp.company,
+    people,
+  });
+}
+
+function renderPeople(people) {
+  els.peopleList.innerHTML = '';
+  for (const p of people) {
+    const card = document.createElement('div');
+    card.className = 'person';
+
+    const head = document.createElement('div');
+    head.className = 'person-head';
+    const score = document.createElement('span');
+    score.className = 'badge ' + ((p.score || 0) >= 7 ? 'ok' : 'empty');
+    score.textContent = `${p.score ?? '?'}/10`;
+    const name = document.createElement('span');
+    name.className = 'person-name';
+    name.textContent = p.name;
+    head.append(score, name);
+    card.append(head);
+
+    if (p.title) {
+      const title = document.createElement('div');
+      title.className = 'person-title';
+      title.textContent = p.title;
+      card.append(title);
+    }
+    if (p.why) {
+      const why = document.createElement('div');
+      why.className = 'person-why';
+      why.textContent = p.why;
+      card.append(why);
+    }
+    if (p.angle) {
+      const angle = document.createElement('div');
+      angle.className = 'person-angle';
+      angle.textContent = `Angle: ${p.angle}`;
+      card.append(angle);
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'variant-actions';
+    const open = document.createElement('button');
+    open.className = 'copy';
+    open.textContent = 'Open profile →';
+    open.onclick = () => chrome.tabs.create({ url: p.url });
+    actions.append(open);
+    card.append(actions);
+
+    els.peopleList.append(card);
   }
 }
 
@@ -790,6 +891,7 @@ async function renderHistory() {
 
 function renderHistoryCard(e) {
   if (e.kind === 'callnotes') return renderNotesHistoryCard(e);
+  if (e.kind === 'people') return renderPeopleHistoryCard(e);
   const chosen =
     e.chosenVariantIndex != null && e.variants[e.chosenVariantIndex]
       ? e.variants[e.chosenVariantIndex]
@@ -873,6 +975,81 @@ function renderHistoryCard(e) {
   };
 
   actions.append(expandBtn, delBtn);
+  card.append(top, meta, snippet, actions, details);
+  return card;
+}
+
+function renderPeopleHistoryCard(e) {
+  const card = document.createElement('div');
+  card.className = 'hist';
+
+  const top = document.createElement('div');
+  top.className = 'hist-top';
+  const name = document.createElement('div');
+  name.className = 'hist-name';
+  name.textContent = `🎯 ${e.name}`;
+  top.append(name);
+
+  const meta = document.createElement('div');
+  meta.className = 'hist-meta';
+  meta.append(
+    document.createTextNode(
+      [`${(e.people || []).length} people`, fmtDate(e.scrapedAt)].filter(Boolean).join(' · ') + ' ',
+    ),
+  );
+  if (e.profileUrl) {
+    const a = document.createElement('a');
+    a.href = e.profileUrl;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.textContent = 'company ↗';
+    meta.append(a);
+  }
+
+  const snippet = document.createElement('div');
+  snippet.className = 'hist-snippet';
+  snippet.textContent = (e.people || [])
+    .slice(0, 3)
+    .map((p) => `${p.name} (${p.score ?? '?'}/10)`)
+    .join(' · ');
+
+  const actions = document.createElement('div');
+  actions.className = 'hist-actions';
+  const expandBtn = document.createElement('button');
+  expandBtn.className = 'small';
+  expandBtn.textContent = `Show all ${(e.people || []).length}`;
+  const delBtn = document.createElement('button');
+  delBtn.className = 'danger';
+  delBtn.textContent = 'Delete';
+  delBtn.onclick = async () => {
+    await deleteHistoryEntry(e.id);
+    renderHistory();
+  };
+  actions.append(expandBtn, delBtn);
+
+  const details = document.createElement('div');
+  details.className = 'hidden';
+  for (const p of e.people || []) {
+    const row = document.createElement('div');
+    row.className = 'hist-variant';
+    const head = document.createElement('div');
+    head.className = 'variant-angle';
+    head.textContent = `${p.score ?? '?'}/10 — ${p.name}`;
+    const txt = document.createElement('div');
+    txt.className = 'variant-text';
+    txt.textContent = [p.title, p.why].filter(Boolean).join(' · ');
+    const open = document.createElement('button');
+    open.className = 'copy';
+    open.textContent = 'Open profile →';
+    open.onclick = () => chrome.tabs.create({ url: p.url });
+    row.append(head, txt, open);
+    details.append(row);
+  }
+  expandBtn.onclick = () => {
+    const hidden = details.classList.toggle('hidden');
+    expandBtn.textContent = hidden ? `Show all ${(e.people || []).length}` : 'Hide';
+  };
+
   card.append(top, meta, snippet, actions, details);
   return card;
 }
@@ -985,6 +1162,7 @@ els.tabCompose.onclick = () => showView('compose');
 els.tabHistory.onclick = () => showView('history');
 els.openOptions.onclick = () => chrome.runtime.openOptionsPage();
 els.btnScrape.onclick = doScrape;
+els.btnFindPeople.onclick = doFindPeople;
 els.btnActivity.onclick = doFetchActivity;
 els.fChannel.onchange = applyChannelUI;
 els.fDesign.onchange = () => {

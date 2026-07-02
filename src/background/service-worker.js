@@ -11,8 +11,10 @@ import {
   buildSystemPrompt,
   buildUserPrompt,
   buildCallNotesSystemPrompt,
+  buildPeopleRankPrompt,
   VARIANTS_SCHEMA,
   CALL_NOTES_SCHEMA,
+  PEOPLE_RANK_SCHEMA,
 } from '../lib/prompt.js';
 import { generate as openaiGenerate } from '../lib/llm-openai.js';
 import { generate as anthropicGenerate } from '../lib/llm-anthropic.js';
@@ -57,6 +59,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type === MSG.SEND_EMAIL) {
     sendEmail(msg.payload || {})
       .then(() => sendResponse({ ok: true }))
+      .catch((e) => sendResponse({ ok: false, error: e.message }));
+    return true;
+  }
+  if (msg?.type === MSG.FIND_PEOPLE) {
+    handleFindPeople(msg.payload || {})
+      .then((result) => sendResponse({ ok: true, ...result }))
       .catch((e) => sendResponse({ ok: false, error: e.message }));
     return true;
   }
@@ -165,23 +173,36 @@ async function handleGenerate(payload) {
   }
 }
 
-// Phase 2 (opt-in): open the prospect's activity page in a BACKGROUND tab,
-// scrape more posts, then close it. This navigates LinkedIn programmatically —
-// the side panel surfaces that and keeps it user-initiated, one profile at a time.
-async function handleFetchActivity(profileUrl) {
-  const activityUrl = toActivityUrl(profileUrl);
-  if (!activityUrl) throw new Error('Could not derive the activity URL from this profile.');
+// ---- company people finder -------------------------------------------------
+// On a company page: scrape the company card from the OPEN tab, then run each
+// configured keyword search on the company's /people/ tab in a background tab
+// (sequential, one at a time — same cautious posture as handleFetchActivity),
+// dedupe by profile URL, and rank with the LLM (title heuristics as fallback).
 
-  const tab = await chrome.tabs.create({ url: activityUrl, active: false });
+const TITLE_SCORES = [
+  [/founder|ceo|chief executive/i, 10],
+  [/cto|chief technology|vp.{0,4}eng|head of eng|director of eng/i, 9],
+  [/talent|recruit/i, 8],
+  [/\bhr\b|human resources|people (ops|operations|team|partner)|chief people/i, 7],
+  [/hiring manager|engineering manager/i, 6],
+  [/coo|chief operating|operations/i, 5],
+];
+
+function heuristicScore(title) {
+  for (const [re, score] of TITLE_SCORES) if (re.test(title || '')) return score;
+  return 2;
+}
+
+async function scrapeInBackgroundTab(url, file) {
+  const tab = await chrome.tabs.create({ url, active: false });
   try {
     await waitForTabComplete(tab.id, 20000);
-    await delay(2500); // let lazily-loaded posts render
+    await delay(2500); // let lazily-loaded results render
     const results = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      files: ['src/content/activity-scraper.js'],
+      files: [file],
     });
-    const data = results?.[results.length - 1]?.result;
-    return { posts: (data && data.posts) || [] };
+    return results?.[results.length - 1]?.result || null;
   } finally {
     if (tab?.id != null) {
       try {
@@ -191,6 +212,99 @@ async function handleFetchActivity(profileUrl) {
       }
     }
   }
+}
+
+async function handleFindPeople({ tabId, companyUrl }) {
+  const m = (companyUrl || '').match(/linkedin\.com\/company\/([^/?#]+)/i);
+  if (!m) throw new Error('This is not a LinkedIn company page.');
+  const slug = m[1];
+
+  // Company card from the tab the user is looking at.
+  let company = { name: slug };
+  if (tabId) {
+    try {
+      const results = await chrome.scripting.executeScript({
+        target: { tabId },
+        files: ['src/content/company-scraper.js'],
+      });
+      company = results?.[results.length - 1]?.result || company;
+    } catch {
+      /* company card is nice-to-have */
+    }
+  }
+
+  const settings = await getSettings();
+  const keywords = (settings.peopleKeywords || []).filter(Boolean).slice(0, 6);
+  if (!keywords.length) throw new Error('No people-search keywords configured (see Settings).');
+
+  const byUrl = new Map();
+  for (const kw of keywords) {
+    const url = `https://www.linkedin.com/company/${slug}/people/?keywords=${encodeURIComponent(kw)}`;
+    try {
+      const data = await scrapeInBackgroundTab(url, 'src/content/people-scraper.js');
+      for (const p of data?.people || []) {
+        if (!byUrl.has(p.url)) byUrl.set(p.url, { ...p, matchedKeyword: kw });
+      }
+    } catch {
+      /* one failed query shouldn't kill the run */
+    }
+  }
+
+  const people = Array.from(byUrl.values()).slice(0, 30);
+  if (!people.length) {
+    throw new Error(
+      'No people found. LinkedIn may have shown a login/consent wall in the background tab, or the people tab is hidden for this company.',
+    );
+  }
+
+  // Heuristic scores first — they also serve as the no-API-key fallback.
+  for (const p of people) p.score = heuristicScore(p.title);
+
+  const provider = settings.provider || 'openai';
+  const apiKey = settings.keys?.[provider] || '';
+  if (apiKey) {
+    try {
+      const { system, user } = buildPeopleRankPrompt(company, people);
+      const gen = ADAPTERS[provider] || openaiGenerate;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
+      try {
+        const out = await gen({
+          apiKey,
+          model: settings.models?.[provider] || '',
+          temperature: 0.2,
+          system,
+          user,
+          schema: PEOPLE_RANK_SCHEMA,
+          signal: controller.signal,
+        });
+        for (const r of out?.ranked || []) {
+          const p = people[r.index];
+          if (!p) continue;
+          p.score = r.score;
+          p.why = r.why;
+          p.angle = r.angle;
+        }
+      } finally {
+        clearTimeout(timeout);
+      }
+    } catch {
+      /* ranking is best-effort — heuristic scores already set */
+    }
+  }
+
+  people.sort((a, b) => (b.score || 0) - (a.score || 0));
+  return { company, people };
+}
+
+// Phase 2 (opt-in): open the prospect's activity page in a BACKGROUND tab,
+// scrape more posts, then close it. This navigates LinkedIn programmatically —
+// the side panel surfaces that and keeps it user-initiated, one profile at a time.
+async function handleFetchActivity(profileUrl) {
+  const activityUrl = toActivityUrl(profileUrl);
+  if (!activityUrl) throw new Error('Could not derive the activity URL from this profile.');
+  const data = await scrapeInBackgroundTab(activityUrl, 'src/content/activity-scraper.js');
+  return { posts: (data && data.posts) || [] };
 }
 
 function toActivityUrl(profileUrl) {

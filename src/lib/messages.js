@@ -13,6 +13,10 @@ export const MSG = {
   FIND_CONTACT: 'FIND_CONTACT',
   // Side panel -> service worker: send an email via the Gmail API.
   SEND_EMAIL: 'SEND_EMAIL',
+  // Side panel -> service worker: on a company page, scrape the company info,
+  // run the people-tab keyword searches in background tabs, rank the results.
+  // payload: { tabId, companyUrl }
+  FIND_PEOPLE: 'FIND_PEOPLE',
   // Side panel -> service worker: which Google account is Gmail using?
   // payload: { interactive?: boolean } — interactive triggers the sign-in popup.
   GMAIL_STATUS: 'GMAIL_STATUS',

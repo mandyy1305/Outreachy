@@ -37,6 +37,57 @@ export const VARIANTS_SCHEMA = {
   },
 };
 
+// People ranking: given a company + scraped people, score who's worth pitching.
+export const PEOPLE_RANK_SCHEMA = {
+  name: 'people_rank',
+  strict: true,
+  schema: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['ranked'],
+    properties: {
+      ranked: {
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['index', 'score', 'why', 'angle'],
+          properties: {
+            index: { type: 'integer' }, // index into the provided people list
+            score: { type: 'integer' }, // 1-10 buying-relevance
+            why: { type: 'string' }, // one line: why they're the right person
+            angle: { type: 'string' }, // one line: opening angle for outreach
+          },
+        },
+      },
+    },
+  },
+};
+
+export function buildPeopleRankPrompt(company, people) {
+  const companyBlock = [
+    `Company: ${val(company?.name) || '(unknown)'}`,
+    val(company?.tagline) && `What they do: ${val(company.tagline)}`,
+    val(company?.industry) && `Industry: ${val(company.industry)}`,
+    val(company?.headcount) && `Size: ${val(company.headcount)}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const peopleBlock = people
+    .map((p, i) => `${i}. ${p.name} — ${p.title || '(no title)'}`)
+    .join('\n');
+
+  const system = `You qualify leads for RemoteStar, a CTO-led tech staffing agency with an AI interview platform (clients: companies hiring software engineers). Given a company and a list of its people, score each person 1-10 on how good a first contact they are for SELLING RemoteStar's hiring service to this company.
+
+Scoring guide: founders/CEOs at small companies and engineering leaders who own hiring (CTO, VP Eng, Head of Engineering) score highest; talent acquisition / recruiting / HR leads score high; engineering managers mid; individual contributors and unrelated functions score low. Consider company size: at a tiny startup the founder is the buyer; at a bigger one, talent/HR leads matter more.
+
+Return ONLY JSON matching the schema. Include EVERY person, using their index from the list. "why" = one specific line on why they're (or aren't) the buyer. "angle" = one line suggesting how to open with them.`;
+
+  const user = `${companyBlock}\n\nPeople:\n${peopleBlock}`;
+  return { system, user };
+}
+
 // Call-prep notes: a structured brief for a sales/discovery call with the
 // prospect. Same adapters as message generation, different schema + prompt.
 export const CALL_NOTES_SCHEMA = {

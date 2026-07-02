@@ -14,6 +14,7 @@ const el = {
   emailDesign: $('emailDesign'),
   senderName: $('senderName'),
   ctaUrl: $('ctaUrl'),
+  peopleKeywords: $('peopleKeywords'),
   globalRules: $('globalRules'),
   styleDescription: $('styleDescription'),
   templates: $('templates'),
@@ -145,6 +146,7 @@ async function load() {
   el.emailDesign.value = s.emailDesign || 'clean';
   el.senderName.value = s.senderName || '';
   el.ctaUrl.value = s.ctaUrl || '';
+  el.peopleKeywords.value = (s.peopleKeywords || []).join('\n');
   el.globalRules.value = s.globalRules;
   el.styleDescription.value = s.styleDescription;
   el.remoteStarContext.value = s.remoteStarContext;
@@ -173,6 +175,10 @@ $('save').addEventListener('click', async () => {
     emailDesign: el.emailDesign.value,
     senderName: el.senderName.value.trim(),
     ctaUrl: el.ctaUrl.value.trim(),
+    peopleKeywords: el.peopleKeywords.value
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean),
     globalRules: el.globalRules.value,
     styleDescription: el.styleDescription.value,
     templates: readTemplates(),
