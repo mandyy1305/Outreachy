@@ -626,6 +626,16 @@ button.danger:hover {
   font-size: 12.5px;
 }
 
+/* ---- email design preview ---- */
+.variant-preview {
+  width: 100%;
+  height: 340px;
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+}
+
 /* ---- Gmail account footer ---- */
 .account-bar {
   position: sticky;

@@ -52,11 +52,11 @@ export async function signOut() {
   return true;
 }
 
-export async function sendEmail({ to, subject, body }) {
+export async function sendEmail({ to, subject, body, html }) {
   if (!to) throw new Error('No recipient email address.');
 
   let token = await getToken(true);
-  const raw = buildRawMessage({ to, subject, body });
+  const raw = buildRawMessage({ to, subject, body, html });
 
   let res = await postSend(token, raw);
   if (res.status === 401) {
@@ -119,14 +119,31 @@ function postSend(token, raw) {
   });
 }
 
-function buildRawMessage({ to, subject, body }) {
-  const headers = [
-    `To: ${to}`,
-    `Subject: ${subject || ''}`,
-    'MIME-Version: 1.0',
+// Plain text only -> a simple text/plain message. With `html` -> a
+// multipart/alternative message where `body` is the text fallback part.
+function buildRawMessage({ to, subject, body, html }) {
+  const top = [`To: ${to}`, `Subject: ${subject || ''}`, 'MIME-Version: 1.0'];
+
+  if (!html) {
+    const headers = [...top, 'Content-Type: text/plain; charset="UTF-8"'];
+    return base64Url(headers.join('\r\n') + '\r\n\r\n' + (body || ''));
+  }
+
+  const boundary = 'rs_' + Math.random().toString(36).slice(2);
+  const headers = [...top, `Content-Type: multipart/alternative; boundary="${boundary}"`];
+  const mime = [
+    headers.join('\r\n'),
+    '',
+    `--${boundary}`,
     'Content-Type: text/plain; charset="UTF-8"',
-  ];
-  const mime = headers.join('\r\n') + '\r\n\r\n' + (body || '');
+    '',
+    body || '',
+    `--${boundary}`,
+    'Content-Type: text/html; charset="UTF-8"',
+    '',
+    html,
+    `--${boundary}--`,
+  ].join('\r\n');
   return base64Url(mime);
 }
 

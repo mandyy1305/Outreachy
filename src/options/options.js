@@ -11,6 +11,9 @@ const el = {
   tempVal: $('tempVal'),
   signalhireKey: $('signalhireKey'),
   defaultChannel: $('defaultChannel'),
+  emailDesign: $('emailDesign'),
+  senderName: $('senderName'),
+  ctaUrl: $('ctaUrl'),
   globalRules: $('globalRules'),
   styleDescription: $('styleDescription'),
   templates: $('templates'),
@@ -139,6 +142,9 @@ async function load() {
   el.tempVal.textContent = s.temperature;
   el.signalhireKey.value = s.signalhireKey || '';
   el.defaultChannel.value = s.defaultChannel || 'linkedin';
+  el.emailDesign.value = s.emailDesign || 'clean';
+  el.senderName.value = s.senderName || '';
+  el.ctaUrl.value = s.ctaUrl || '';
   el.globalRules.value = s.globalRules;
   el.styleDescription.value = s.styleDescription;
   el.remoteStarContext.value = s.remoteStarContext;
@@ -164,6 +170,9 @@ $('save').addEventListener('click', async () => {
     temperature: parseFloat(el.temperature.value),
     signalhireKey: el.signalhireKey.value.trim(),
     defaultChannel: el.defaultChannel.value,
+    emailDesign: el.emailDesign.value,
+    senderName: el.senderName.value.trim(),
+    ctaUrl: el.ctaUrl.value.trim(),
     globalRules: el.globalRules.value,
     styleDescription: el.styleDescription.value,
     templates: readTemplates(),

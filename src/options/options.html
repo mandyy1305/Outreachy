@@ -55,10 +55,36 @@
         </label>
 
         <p class="hint">
-          <strong>Email sending (Gmail):</strong> the "Send email" button uses the Gmail API via Google sign-in.
-          One-time setup is required — create a Google Cloud OAuth client for this extension and put its
-          client ID in <code>manifest.json</code> (<code>oauth2.client_id</code>). See the README "Gmail setup" section.
+          <strong>Email sending (Gmail):</strong> the "Send email" button uses the Gmail API via Google sign-in —
+          each teammate signs in with their own @remotestar.io account (see the footer of the side panel).
+          Setup for the whole team is one-time and documented in the README "Gmail setup" section.
         </p>
+      </fieldset>
+
+      <fieldset class="group">
+        <legend>Email appearance</legend>
+
+        <label class="field">
+          <span class="field-label">Default email design</span>
+          <select id="emailDesign">
+            <option value="plain">Plain text (best deliverability)</option>
+            <option value="clean">Clean — typographic, subtle accent</option>
+            <option value="card">Card — branded header + call button</option>
+          </select>
+          <span class="hint">Pick per-email in the side panel too. "Plain" sends text only; the others send styled HTML with a plain-text fallback.</span>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Your name (email signature)</span>
+          <input id="senderName" type="text" placeholder="e.g. Rudraksha Singh" />
+          <span class="hint">Shown in the styled signature of the Clean and Card designs.</span>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Booking link (Card design button)</span>
+          <input id="ctaUrl" type="url" placeholder="https://calendly.com/…" />
+          <span class="hint">The Card design shows a "Book a quick call" button pointing here. Leave empty to hide the button.</span>
+        </label>
       </fieldset>
 
       <label class="field">

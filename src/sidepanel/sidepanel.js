@@ -1,4 +1,5 @@
 import { MSG } from '../lib/messages.js';
+import { EMAIL_DESIGNS, renderEmailHtml } from '../lib/email-designs.js';
 import {
   getSettings,
   getHistory,
@@ -30,6 +31,8 @@ const els = {
   btnActivity: $('btn-activity'),
   fTemplate: $('f-template'),
   fChannel: $('f-channel'),
+  designField: $('design-field'),
+  fDesign: $('f-design'),
   contactBlock: $('contact-block'),
   btnFindContact: $('btn-find-contact'),
   contactStatus: $('contact-status'),
@@ -120,6 +123,7 @@ function showView(which) {
   if (compose) {
     detectPage();
     populateTemplates();
+    populateDesigns();
   } else {
     renderHistory();
   }
@@ -203,8 +207,35 @@ async function doScrape() {
 function applyChannelUI() {
   const channel = els.fChannel.value;
   els.contactBlock.classList.toggle('hidden', channel === 'linkedin');
+  els.designField.classList.toggle('hidden', channel !== 'email');
   // Re-render any existing variants so subject fields / action buttons match.
   if (lastVariants.length) renderVariants(lastVariants, currentEntryId, channel);
+}
+
+// Design picker (email channel). Rendering needs the signature/CTA settings,
+// so keep the latest settings snapshot around.
+let designSettings = { senderName: '', ctaUrl: '' };
+
+async function populateDesigns() {
+  const s = await getSettings();
+  designSettings = { senderName: s.senderName || '', ctaUrl: s.ctaUrl || '' };
+  els.fDesign.innerHTML = '';
+  for (const d of EMAIL_DESIGNS) {
+    const o = document.createElement('option');
+    o.value = d.id;
+    o.textContent = d.name;
+    els.fDesign.append(o);
+  }
+  els.fDesign.value = s.emailDesign || 'clean';
+}
+
+function currentEmailHtml(bodyText) {
+  return renderEmailHtml(els.fDesign.value, {
+    bodyText,
+    senderName: designSettings.senderName,
+    ctaText: 'Book a quick call',
+    ctaUrl: designSettings.ctaUrl,
+  });
 }
 
 async function doFindContact() {
@@ -315,7 +346,8 @@ async function sendEmailMessage(subject, body, btn) {
   const original = btn.textContent;
   btn.disabled = true;
   btn.textContent = 'Sending…';
-  const resp = await sendMsg({ type: MSG.SEND_EMAIL, payload: { to, subject, body } });
+  const html = currentEmailHtml(body); // null for the plain design
+  const resp = await sendMsg({ type: MSG.SEND_EMAIL, payload: { to, subject, body, html } });
   btn.disabled = false;
   btn.textContent = original;
   showToast(resp?.ok ? `Email sent to ${to}` : resp?.error || 'Send failed');
@@ -486,13 +518,44 @@ function renderVariants(variants, entryId, channel) {
     body.className = 'variant-body';
     body.rows = channel === 'email' ? 6 : 4;
     body.value = v.message || '';
+    card.append(body);
+
+    // Live preview of the designed email (iframe so its CSS can't leak out).
+    let preview = null;
+    const refreshPreview = () => {
+      if (!preview || preview.classList.contains('hidden')) return;
+      const html = currentEmailHtml(body.value);
+      preview.srcdoc =
+        html ||
+        `<pre style="margin:0;padding:12px;font:13px/1.5 -apple-system,system-ui,sans-serif;white-space:pre-wrap;">${(body.value || '')
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')}</pre>`;
+    };
+    if (channel === 'email') {
+      preview = document.createElement('iframe');
+      preview.className = 'variant-preview hidden';
+      preview.setAttribute('sandbox', ''); // static preview: no scripts, no navigation
+      card.append(preview);
+    }
     body.addEventListener('input', () => {
       words.textContent = `${wordCount(body.value)} words`;
+      refreshPreview();
     });
-    card.append(body);
 
     const actions = document.createElement('div');
     actions.className = 'variant-actions';
+
+    if (channel === 'email') {
+      const pv = document.createElement('button');
+      pv.className = 'small';
+      pv.textContent = 'Preview';
+      pv.onclick = () => {
+        const nowHidden = preview.classList.toggle('hidden');
+        pv.textContent = nowHidden ? 'Preview' : 'Hide preview';
+        refreshPreview();
+      };
+      actions.append(pv);
+    }
 
     const copyBtn = document.createElement('button');
     copyBtn.className = 'copy';
@@ -720,6 +783,10 @@ els.openOptions.onclick = () => chrome.runtime.openOptionsPage();
 els.btnScrape.onclick = doScrape;
 els.btnActivity.onclick = doFetchActivity;
 els.fChannel.onchange = applyChannelUI;
+els.fDesign.onchange = () => {
+  // Re-render so any open previews pick up the new design.
+  if (lastVariants.length) renderVariants(lastVariants, currentEntryId, els.fChannel.value);
+};
 els.btnFindContact.onclick = doFindContact;
 els.btnGenerate.onclick = doGenerate;
 els.btnExport.onclick = exportHistory;
@@ -743,6 +810,7 @@ chrome.tabs.onUpdated.addListener((_id, info) => {
 
 detectPage();
 populateTemplates();
+populateDesigns();
 refreshAccountBar();
 getSettings().then((s) => {
   els.fChannel.value = s.defaultChannel || 'linkedin';

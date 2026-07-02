@@ -63,6 +63,12 @@ export const DEFAULT_SETTINGS = {
   defaultTemplateId: 'tpl-sales',
   promptTemplate: '', // optional full override of the built-in system prompt
   remoteStarContext: '', // optional override of the built-in RemoteStar context
+  // Email appearance (see lib/email-designs.js).
+  emailDesign: 'clean', // 'plain' | 'clean' | 'card'
+  senderName: '', // shown in the styled email signature
+  ctaUrl: '', // booking link for the "card" design's button (e.g. Calendly)
+  // Company people finder: one search per line, run on the /people/ tab.
+  peopleKeywords: ['founder OR CEO', 'CTO OR VP engineering', 'talent acquisition OR recruiter', 'HR OR people operations'],
 };
 
 export async function getSettings() {

@@ -105,7 +105,7 @@ GENERAL RULES:
 - Sound human, never robotic or buzzword-y.${styleSection}${typeSection}${rulesSection}
 
 OUTPUT:
-Return ONLY JSON matching the provided schema. Produce 2-3 variants of the message described by the MESSAGE TYPE above for the CHANNEL above — each a distinct take (different opening hook / angle / wording), all serving the same goal and matching the example voice. Give each variant a short angle label (a few words). Fill "subject" only for the email channel; otherwise set it to an empty string.`;
+Return ONLY JSON matching the provided schema. Produce ${channel === 'email' ? '3-4' : '2-3'} variants of the message described by the MESSAGE TYPE above for the CHANNEL above — each a distinct take (different opening hook / angle / wording), all serving the same goal and matching the example voice. Give each variant a short angle label (a few words). Fill "subject" only for the email channel; otherwise set it to an empty string.`;
 }
 
 export function buildUserPrompt(scraped) {
