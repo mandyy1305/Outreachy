@@ -22,7 +22,17 @@ export async function getAccountStatus(interactive = false) {
     return { signedIn: false, error: e.message };
   }
   try {
-    const res = await fetch(USERINFO_URL, { headers: { Authorization: `Bearer ${token}` } });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    let res;
+    try {
+      res = await fetch(USERINFO_URL, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
     if (!res.ok) throw new Error(`userinfo ${res.status}`);
     const j = await res.json();
     return { signedIn: true, email: j.email || '(unknown account)' };
