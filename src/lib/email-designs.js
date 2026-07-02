@@ -76,14 +76,25 @@ function shell(inner) {
 </html>`;
 }
 
-// ---- clean: quiet typography, thin accent rule, subtle signature ----------
+// ---- clean: quiet typography on plain white — NO card, no box. Reads like a
+// normal email that happens to be beautifully typeset. ----------------------
 function clean({ bodyText, senderName }) {
-  return shell(`
-    <tr><td style="background:#ffffff;border:1px solid ${BORDER};border-radius:12px;padding:30px 32px;font-family:${FONT};">
-      <div style="width:44px;height:3px;background:${ACCENT};border-radius:2px;margin:0 0 22px;"></div>
-      ${paragraphs(bodyText)}
-      ${signature(senderName)}
-    </td></tr>`);
+  return `<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#ffffff;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="padding:26px 22px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" style="max-width:560px;">
+          <tr><td style="font-family:${FONT};">
+            <div style="width:40px;height:3px;background:${ACCENT};border-radius:2px;margin:0 0 20px;"></div>
+            ${paragraphs(bodyText)}
+            ${signature(senderName)}
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
 }
 
 // ---- card: branded header band + optional CTA button -----------------------

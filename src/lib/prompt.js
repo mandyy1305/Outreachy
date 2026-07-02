@@ -178,12 +178,14 @@ const CHANNEL_GUIDANCE = {
     'CHANNEL: LinkedIn direct message. Keep it tight and skimmable. Leave the "subject" field empty.',
   whatsapp:
     'CHANNEL: WhatsApp message. Very short and casual — 1 to 3 short sentences, like texting a peer. No greeting/sign-off boilerplate. Leave the "subject" field empty.',
-  email: `CHANNEL: Email — a professional cold email, not a DM. Formatting requirements (these take precedence over any casual-style or all-lowercase rule, which apply to DMs only):
+  email: `CHANNEL: Email — a professional cold email, not a DM. Formatting requirements:
 - Standard capitalization and punctuation throughout, including the subject.
 - Subject: short and specific to THEM (their company/role/situation), never clickbait, no "quick question".
-- Structure: greeting with first name → one specific, factual observation about them or their company (no flattery) → one or two sentences on why RemoteStar is relevant to THAT observation, with a concrete proof point → one clear, low-pressure ask → short sign-off.
-- 60-120 words. Short paragraphs (1-2 sentences each).
-- BANNED: "congrats on", "huge step", "testament to", "impressive", "love what you're doing", "I hope this finds you well", "I came across", and any opener that compliments instead of observing. Lead with substance, not praise.`,
+- Structure: greeting line with first name → one specific, factual observation about them or their company (no flattery) → one or two sentences on why RemoteStar is relevant to THAT observation, with a concrete proof point → one clear, low-pressure ask → sign-off.
+- 60-120 words total.
+- PARAGRAPHS ARE MANDATORY: the greeting is its own line, then 2-4 short paragraphs (1-2 sentences each), each separated by a BLANK line (a literal \\n\\n inside the JSON string). Never return one solid block of text.
+- SIGN-OFF IS MANDATORY: end with a closing like "Best," or "Thanks," on its own line, followed by the sender's first name on the next line.
+- BANNED: "congrats on", "huge step", "testament to", "impressive", "love what you're doing", "I hope this finds you well", "I came across", "leverage", "ensure", and any opener that compliments instead of observing. Lead with substance, not praise.`,
 };
 
 export function buildSystemPrompt(settings, template, channel) {
@@ -211,11 +213,18 @@ export function buildSystemPrompt(settings, template, channel) {
     ? `\n\nSENDER: You write as ${sender} from RemoteStar. When a sign-off is called for, sign with "${sender.split(' ')[0]}". NEVER write "[Your Name]" or any bracketed placeholder.`
     : `\n\nSENDER: The sender's name is not configured. End messages with the sign-off word alone (e.g. "best,") and no name — NEVER write "[Your Name]" or any bracketed placeholder.`;
 
-  const styleSection = base ? `\n\nBASE WRITING STYLE (applies to every message):\n${base}` : '';
+  // The saved style/rules are authored for casual DMs (all-lowercase, texting
+  // voice). Applying them to email produced lowercase, unstructured blobs and
+  // models can't reliably resolve rule-vs-exception conflicts — so email gets
+  // ONLY the channel requirements, and DMs keep the user's voice untouched.
+  const isEmail = channel === 'email';
+  const styleSection =
+    !isEmail && base ? `\n\nBASE WRITING STYLE (applies to every message):\n${base}` : '';
   const typeSection = typeBlock ? `\n\n${typeBlock}` : '';
-  const rulesSection = rules
-    ? `\n\nMANDATORY RULES — these are absolute and override everything above, including the base style and the example messages (even if the examples break these rules, you must not). Single exception: on the email channel, the CHANNEL formatting requirements (capitalization, punctuation, structure) win over any conflicting formatting rule here — email rules about voice and content still apply:\n${rules}`
-    : '';
+  const rulesSection =
+    !isEmail && rules
+      ? `\n\nMANDATORY RULES — these are absolute and override everything above, including the base style and the example messages (even if the examples break these rules, you must not):\n${rules}`
+      : '';
 
   return `You write personalized outreach messages on behalf of a business-development representative at RemoteStar, to someone they recently connected with.
 
