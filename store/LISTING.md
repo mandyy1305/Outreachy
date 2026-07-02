@@ -59,11 +59,12 @@ public GitHub gist — then paste that URL here.
 
 ## Distribution tab
 
-- **Visibility**: Private
-- **Restrict to**: Everyone at remotestar.io
-  (This option appears because the publisher account is in the remotestar.io
-  Google Workspace. If you don't see it, make sure you registered the dev
-  account with your work Google account, not a personal one.)
+- **Visibility**: Unlisted
+  (Not searchable or browsable — installable only via the direct link. Works
+  from any developer account. Treat the install link as internal: share it in
+  the team channel, not publicly. The extension is inert for outsiders anyway —
+  Gmail sign-in is locked to remotestar.io accounts and the API keys travel
+  separately in the settings file.)
 
 ## After it's approved
 
