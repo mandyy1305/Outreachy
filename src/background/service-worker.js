@@ -222,8 +222,18 @@ const TITLE_SCORES = [
   [/coo|chief operating|operations/i, 5],
 ];
 
-function heuristicScore(title) {
-  for (const [re, score] of TITLE_SCORES) if (re.test(title || '')) return score;
+// Headlines naming a DIFFERENT company ("Founder at OtherCo") are probably
+// alumni/vendors the People tab surfaced, not staff — floor them before any
+// title keyword can inflate them.
+function heuristicScore(title, companyName) {
+  const t = title || '';
+  const m = t.match(/(?:\bat\b|@)\s*([A-Za-z0-9&.\- ]{2,40})/i);
+  if (m && companyName) {
+    const named = m[1].trim().toLowerCase();
+    const cn = companyName.toLowerCase();
+    if (named && !named.includes(cn.slice(0, 6)) && !cn.includes(named.split(' ')[0])) return 2;
+  }
+  for (const [re, score] of TITLE_SCORES) if (re.test(t)) return score;
   return 2;
 }
 
@@ -292,7 +302,8 @@ async function handleFindPeople({ tabId, companyUrl }) {
   }
 
   // Heuristic scores first — they also serve as the no-API-key fallback.
-  for (const p of people) p.score = heuristicScore(p.title);
+  for (const p of people) p.score = heuristicScore(p.title, company?.name);
+  let companyFit = null;
 
   const provider = settings.provider || 'openai';
   const apiKey = settings.keys?.[provider] || '';
@@ -319,6 +330,7 @@ async function handleFindPeople({ tabId, companyUrl }) {
           p.why = r.why;
           p.angle = r.angle;
         }
+        companyFit = out?.companyFit || null;
       } finally {
         clearTimeout(timeout);
       }
@@ -328,7 +340,7 @@ async function handleFindPeople({ tabId, companyUrl }) {
   }
 
   people.sort((a, b) => (b.score || 0) - (a.score || 0));
-  return { company, people };
+  return { company, companyFit, people };
 }
 
 // Phase 2 (opt-in): open the prospect's activity page in a BACKGROUND tab,

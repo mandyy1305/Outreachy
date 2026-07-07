@@ -44,8 +44,17 @@ export const PEOPLE_RANK_SCHEMA = {
   schema: {
     type: 'object',
     additionalProperties: false,
-    required: ['ranked'],
+    required: ['companyFit', 'ranked'],
     properties: {
+      companyFit: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['score', 'reason'],
+        properties: {
+          score: { type: 'integer' }, // 1-10: would this COMPANY buy RemoteStar?
+          reason: { type: 'string' }, // one line
+        },
+      },
       ranked: {
         type: 'array',
         items: {
@@ -78,9 +87,16 @@ export function buildPeopleRankPrompt(company, people) {
     .map((p, i) => `${i}. ${p.name} — ${p.title || '(no title)'}`)
     .join('\n');
 
-  const system = `You qualify leads for RemoteStar, a CTO-led tech staffing agency with an AI interview platform (clients: companies hiring software engineers). Given a company and a list of its people, score each person 1-10 on how good a first contact they are for SELLING RemoteStar's hiring service to this company.
+  const companyName = val(company?.name) || 'the target company';
+  const system = `You qualify leads for RemoteStar, a CTO-led tech staffing agency with an AI interview platform (clients: companies hiring software engineers). The user opened the LinkedIn page of ${companyName} and collected people from its People tab. Score each person 1-10 as a first contact for SELLING RemoteStar's hiring service TO ${companyName}.
 
-Scoring guide: founders/CEOs at small companies and engineering leaders who own hiring (CTO, VP Eng, Head of Engineering) score highest; talent acquisition / recruiting / HR leads score high; engineering managers mid; individual contributors and unrelated functions score low. Consider company size: at a tiny startup the founder is the buyer; at a bigger one, talent/HR leads matter more.
+CRITICAL — affiliation check first: the "title" lines are LinkedIn headlines and are NOT verified job titles at ${companyName}. LinkedIn's People tab also surfaces alumni, vendors, and loosely-associated profiles. If a headline names a DIFFERENT company (e.g. "Founder at SomeOtherCo", "CEO @ XyzLabs"), that person probably does NOT work at ${companyName} — score them 1-2 and say so in "why" (e.g. "appears to be founder of SomeOtherCo, not staff at ${companyName}"). A "Founder" headline is only a top score if it's plausibly the founder OF ${companyName} — the headline names ${companyName}, names no other company, or is a bare title with nothing contradicting it.
+
+Scoring guide (only AFTER affiliation is plausible): founders/CEOs at small companies and engineering leaders who own hiring (CTO, VP Eng, Head of Engineering) score highest; talent acquisition / recruiting / HR leads high; engineering managers mid; ICs and unrelated functions low. Consider size: at a tiny startup the founder is the buyer; at a bigger one, talent/HR leads matter more.
+
+Ground every score in the provided data only. Missing or thin data means a LOWER score, never a generous guess — nobody scores above 6 unless the data actually supports it.
+
+Also return companyFit: 1-10 on whether ${companyName} itself is a plausible RemoteStar buyer (a product/tech company that hires software engineers scores high; agencies, non-tech, or unclear score low), with a one-line reason. If companyFit is 4 or less, cap every person score at 4.
 
 Return ONLY JSON matching the schema. Include EVERY person, using their index from the list. "why" = one specific line on why they're (or aren't) the buyer. "angle" = one line suggesting how to open with them.`;
 

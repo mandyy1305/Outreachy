@@ -246,7 +246,10 @@ async function doFindPeople() {
   els.callnotes.innerHTML = '';
   lastVariants = [];
   renderPeople(people);
-  showResults('people', `${resp.company?.name || 'Company'} · ${people.length} people, ranked`, 'detect');
+  const fit = resp.companyFit;
+  const fitNote = fit ? ` · fit ${fit.score}/10` : '';
+  showResults('people', `${resp.company?.name || 'Company'} · ${people.length} people${fitNote}`, 'detect');
+  if (fit && fit.score <= 4) showToast(`⚠ Weak fit: ${fit.reason || 'this company may not be a RemoteStar buyer'}`);
 
   await addHistoryEntry({
     id: crypto.randomUUID(),
@@ -256,6 +259,7 @@ async function doFindPeople() {
     headline: resp.company?.tagline || '',
     scrapedAt: new Date().toISOString(),
     company: resp.company,
+    companyFit: fit || null,
     people,
   });
 }
