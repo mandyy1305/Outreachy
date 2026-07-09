@@ -67,6 +67,9 @@ export const DEFAULT_SETTINGS = {
   emailDesign: 'plain', // 'plain' (natural) | 'clean' | 'card' (designed)
   senderName: '', // shown in the styled email signature
   ctaUrl: '', // booking link for the "card" design's button (e.g. Calendly)
+  // Outreach mode: 'sell' pitches the service; 'feedback' asks founders/CEOs
+  // for product feedback (soft-sell — the showcase happens by itself).
+  outreachMode: 'sell',
   // Company people finder: one search per line, run on the /people/ tab.
   peopleKeywords: ['founder OR CEO', 'CTO OR VP engineering', 'talent acquisition OR recruiter', 'HR OR people operations'],
 };

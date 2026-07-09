@@ -33,6 +33,10 @@
           <p id="page-status" class="status muted"></p>
           <button id="btn-scrape" class="primary" type="button">Scrape this profile</button>
           <div id="company-block" class="hidden">
+            <div id="mode-pills-detect" class="pills mode-pills" role="radiogroup" aria-label="Outreach mode">
+              <button type="button" class="pill" data-mode="sell" title="Find and pitch the people who'd buy RemoteStar">Pitch</button>
+              <button type="button" class="pill" data-mode="feedback" title="Find founders/CEOs to ask for product feedback (soft-sell)">Feedback</button>
+            </div>
             <button id="btn-find-people" class="primary" type="button">Find people to pitch</button>
             <p class="empty-caption">Runs your saved searches on this company's People tab and ranks who's worth contacting.</p>
           </div>
@@ -83,6 +87,12 @@
         </details>
 
         <div class="compose-card">
+          <div class="field-label">Goal</div>
+          <div id="mode-pills-compose" class="pills mode-pills" role="radiogroup" aria-label="Outreach mode">
+            <button type="button" class="pill" data-mode="sell" title="Pitch RemoteStar and invite them to a call">Pitch</button>
+            <button type="button" class="pill" data-mode="feedback" title="Show what we're building and ask for their feedback — no selling">Feedback</button>
+          </div>
+
           <div class="field-label">Channel</div>
           <div id="channel-pills" class="pills" role="radiogroup" aria-label="Channel">
             <button type="button" class="pill active" data-channel="linkedin">LinkedIn</button>

@@ -749,6 +749,22 @@ button.danger:hover {
   color: #fff;
 }
 
+/* Mode (Pitch/Feedback) — feedback goes green so the panel always shows which
+   footing you're on; a feedback ask sent in sell-voice is an expensive mistake. */
+.mode-pills {
+  margin-bottom: 14px;
+}
+
+.mode-pills .pill.active[data-mode='feedback'] {
+  background: #12805c;
+  border-color: #12805c;
+}
+
+#company-block .mode-pills {
+  max-width: 240px;
+  margin: 0 auto 12px;
+}
+
 /* ---- sticky action bar ---- */
 .action-bar {
   position: sticky;

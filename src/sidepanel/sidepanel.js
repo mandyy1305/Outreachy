@@ -2,6 +2,7 @@ import { MSG } from '../lib/messages.js';
 import { renderEmailHtml } from '../lib/email-designs.js';
 import {
   getSettings,
+  saveSettings,
   getHistory,
   addHistoryEntry,
   updateHistoryEntry,
@@ -84,7 +85,23 @@ let lastVariants = []; // kept so we can re-render when the channel changes
 let foundEmails = []; // [{value, rating, subType}]
 let foundPhones = [];
 let currentChannel = 'linkedin';
+let currentMode = 'sell'; // 'sell' | 'feedback' — threads through people finder, messages, call notes
 let resultsOrigin = 'compose'; // where the back button returns to
+
+// Two synced pill groups (detect + compose stages) drive one persisted mode.
+function setMode(mode, persist = true) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-pills .pill').forEach((p) => {
+    p.classList.toggle('active', p.dataset.mode === mode);
+  });
+  els.btnFindPeople.textContent = mode === 'feedback' ? 'Find people to ask for feedback' : 'Find people to pitch';
+  // In feedback mode, preselect the feedback template when it exists.
+  if (mode === 'feedback') {
+    const opts = Array.from(els.fTemplate.options).map((o) => o.value);
+    if (opts.includes('tpl-feedback')) els.fTemplate.value = 'tpl-feedback';
+  }
+  if (persist) saveSettings({ outreachMode: mode });
+}
 
 // ---- stages ---------------------------------------------------------------
 // The compose view is a 3-stage flow — detect (pick a page), compose (review +
@@ -229,7 +246,7 @@ async function doFindPeople() {
 
   const resp = await sendMsg({
     type: MSG.FIND_PEOPLE,
-    payload: { tabId: tab.id, companyUrl: tab.url },
+    payload: { tabId: tab.id, companyUrl: tab.url, mode: currentMode },
   });
 
   els.btnFindPeople.disabled = false;
@@ -622,7 +639,10 @@ async function doGenerate() {
   els.genStatus.textContent = 'Generating messages…';
   els.variants.innerHTML = '';
 
-  const resp = await sendMsg({ type: MSG.GENERATE, payload: { scraped, templateId, channel } });
+  const resp = await sendMsg({
+    type: MSG.GENERATE,
+    payload: { scraped, templateId, channel, outreachMode: currentMode },
+  });
 
   els.btnGenerate.disabled = false;
 
@@ -744,7 +764,10 @@ async function doGenerateNotes() {
   els.genStatus.textContent = 'Preparing call notes…';
   els.callnotes.classList.add('hidden');
 
-  const resp = await sendMsg({ type: MSG.GENERATE, payload: { scraped, mode: 'callnotes' } });
+  const resp = await sendMsg({
+    type: MSG.GENERATE,
+    payload: { scraped, mode: 'callnotes', outreachMode: currentMode },
+  });
 
   els.btnCallNotes.disabled = false;
   if (!resp?.ok) {
@@ -1336,6 +1359,9 @@ els.btnResearch.onclick = doResearch;
 els.channelPills.querySelectorAll('.pill').forEach((p) => {
   p.onclick = () => setChannel(p.dataset.channel);
 });
+document.querySelectorAll('.mode-pills .pill').forEach((p) => {
+  p.onclick = () => setMode(p.dataset.mode);
+});
 els.designPills.querySelectorAll('.pill').forEach((p) => {
   p.onclick = () => setDesign(p.dataset.design);
 });
@@ -1379,4 +1405,5 @@ populateDesigns();
 refreshAccountBar();
 getSettings().then((s) => {
   setChannel(s.defaultChannel || 'linkedin');
+  setMode(s.outreachMode || 'sell', false);
 });

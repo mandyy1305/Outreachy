@@ -73,7 +73,7 @@ export const PEOPLE_RANK_SCHEMA = {
   },
 };
 
-export function buildPeopleRankPrompt(company, people) {
+export function buildPeopleRankPrompt(company, people, mode = 'sell') {
   const companyBlock = [
     `Company: ${val(company?.name) || '(unknown)'}`,
     val(company?.tagline) && `What they do: ${val(company.tagline)}`,
@@ -88,11 +88,19 @@ export function buildPeopleRankPrompt(company, people) {
     .join('\n');
 
   const companyName = val(company?.name) || 'the target company';
-  const system = `You qualify leads for RemoteStar, a CTO-led tech staffing agency with an AI interview platform (clients: companies hiring software engineers). The user opened the LinkedIn page of ${companyName} and collected people from its People tab. Score each person 1-10 as a first contact for SELLING RemoteStar's hiring service TO ${companyName}.
+  const goal =
+    mode === 'feedback'
+      ? `Score each person 1-10 as someone to ask for honest PRODUCT FEEDBACK on RemoteStar (a CTO-led screening + AI interview platform). The ideal person is a peer who personally feels engineering-hiring pain and whose opinion carries weight: founders, CEOs, CTOs, and senior product/engineering leaders score highest; talent acquisition leads mid (useful workflow feedback); HR generalists and ICs low. "angle" = one line on how to open the feedback ask with them.`
+      : `Score each person 1-10 as a first contact for SELLING RemoteStar's hiring service TO ${companyName}.`;
+  const system = `You qualify leads for RemoteStar, a CTO-led tech staffing agency with an AI interview platform (clients: companies hiring software engineers). The user opened the LinkedIn page of ${companyName} and collected people from its People tab. ${goal}
 
 CRITICAL — affiliation check first: the "title" lines are LinkedIn headlines and are NOT verified job titles at ${companyName}. LinkedIn's People tab also surfaces alumni, vendors, and loosely-associated profiles. If a headline names a DIFFERENT company (e.g. "Founder at SomeOtherCo", "CEO @ XyzLabs"), that person probably does NOT work at ${companyName} — score them 1-2 and say so in "why" (e.g. "appears to be founder of SomeOtherCo, not staff at ${companyName}"). A "Founder" headline is only a top score if it's plausibly the founder OF ${companyName} — the headline names ${companyName}, names no other company, or is a bare title with nothing contradicting it.
 
-Scoring guide (only AFTER affiliation is plausible): founders/CEOs at small companies and engineering leaders who own hiring (CTO, VP Eng, Head of Engineering) score highest; talent acquisition / recruiting / HR leads high; engineering managers mid; ICs and unrelated functions low. Consider size: at a tiny startup the founder is the buyer; at a bigger one, talent/HR leads matter more.
+${
+    mode === 'feedback'
+      ? 'Scoring guide (only AFTER affiliation is plausible): founders, CEOs, CTOs, and senior engineering/product leaders score highest — peers whose feedback is strategic; talent acquisition leads mid; HR generalists, ICs, and unrelated functions low.'
+      : 'Scoring guide (only AFTER affiliation is plausible): founders/CEOs at small companies and engineering leaders who own hiring (CTO, VP Eng, Head of Engineering) score highest; talent acquisition / recruiting / HR leads high; engineering managers mid; ICs and unrelated functions low. Consider size: at a tiny startup the founder is the buyer; at a bigger one, talent/HR leads matter more.'
+  }
 
 Ground every score in the provided data only. Missing or thin data means a LOWER score, never a generous guess — nobody scores above 6 unless the data actually supports it.
 
@@ -146,11 +154,30 @@ export const CALL_NOTES_SCHEMA = {
   },
 };
 
-export function buildCallNotesSystemPrompt(settings) {
+export function buildCallNotesSystemPrompt(settings, mode = 'sell') {
   const ctx =
     settings.remoteStarContext && settings.remoteStarContext.trim()
       ? settings.remoteStarContext.trim()
       : REMOTESTAR_CONTEXT;
+
+  if (mode === 'feedback') {
+    return `You prepare session notes for a RemoteStar founder/BD person about to run a PRODUCT FEEDBACK session with a founder/CEO/CTO. This is NOT a sales call: the goal is to show what RemoteStar is building, listen hard, and learn — any commercial interest must come from THEM. Notes are for the host's eyes only: practical, specific, skimmable live.
+
+ABOUT REMOTESTAR (what will be shown):
+${ctx}
+
+Build the notes strictly from the provided profile/company/research data — never invent facts. Where data is thin, keep sections short rather than padding them.
+
+Sections (reuse the schema fields as follows):
+- snapshot: who this person is and where they work, 2-3 sentences.
+- hooks: 2-4 specific reasons THEIR perspective matters (their hiring history, scale, posts) — use these to open the session.
+- pitchAngles: 2-3 DEMO BEATS — which part of the product to show and why it will resonate with THIS person (angle = the feature/moment, talkTrack = one line of framing while showing it). Never phrased as selling.
+- discoveryQuestions: 4-6 feedback questions that elicit honest reactions (what feels off, would they trust an AI interview score, what would make this a no, how do they screen today).
+- objections: 2-4 skeptical reactions THIS person is likely to voice (e.g. "AI interviews feel impersonal"), each with an honest, non-defensive response that invites more detail rather than rebutting.
+- nextStep: a soft close that keeps it non-commercial (e.g. thank them + offer to share what changes from their feedback; if THEY ask about using it, offer to run one real role through the platform).
+
+Return ONLY JSON matching the provided schema.`;
+  }
 
   return `You prepare call notes for a RemoteStar business-development rep about to get on a call with a prospect. The notes are for the REP's eyes only — practical, specific, skimmable during a live call. Plain conversational language, no fluff, no generic sales advice.
 
@@ -204,7 +231,16 @@ const CHANNEL_GUIDANCE = {
 - BANNED: "congrats on", "huge step", "testament to", "impressive", "love what you're doing", "I hope this finds you well", "I came across", "leverage", "ensure", and any opener that compliments instead of observing. Lead with substance, not praise.`,
 };
 
-export function buildSystemPrompt(settings, template, channel) {
+// Feedback mode reframes the entire message: no selling, just "we're building
+// this, your take as someone who hires engineers would genuinely help". The
+// product gets its showcase implicitly; if they're interested, that's their move.
+const FEEDBACK_MODE_GUIDANCE = `MODE: FEEDBACK ASK — this message does NOT sell. The goal is honest product feedback from a peer (founder/CEO/CTO) who knows the pain of hiring engineers.
+- Frame: we're building RemoteStar (describe what it is in ONE concrete sentence, e.g. the AI interview that produces a scored, recorded report per candidate); given what THEY have built/do, their reaction would genuinely help us.
+- The ask: a short feedback chat (15 minutes) or even an async reaction ("happy to send a 2-minute sample report if easier").
+- HARD RULES: never pitch the service, never suggest they use or buy it, no "we can help you hire", no pricing, no "differentiators". If curiosity turns into interest, that's their move — the message only asks for their opinion.
+- Where the channel guidance above says to connect RemoteStar's relevance or make an ask, apply it in feedback terms: relevance = why THEIR perspective matters; ask = the feedback chat.`;
+
+export function buildSystemPrompt(settings, template, channel, mode = 'sell') {
   const ctx =
     settings.remoteStarContext && settings.remoteStarContext.trim()
       ? settings.remoteStarContext.trim()
@@ -242,9 +278,11 @@ export function buildSystemPrompt(settings, template, channel) {
       ? `\n\nMANDATORY RULES — these are absolute and override everything above, including the base style and the example messages (even if the examples break these rules, you must not):\n${rules}`
       : '';
 
+  const modeSection = mode === 'feedback' ? `\n\n${FEEDBACK_MODE_GUIDANCE}` : '';
+
   return `You write personalized outreach messages on behalf of a business-development representative at RemoteStar, to someone they recently connected with.
 
-${channelText}
+${channelText}${modeSection}
 
 ABOUT REMOTESTAR (use only what's relevant to the message type):
 ${ctx}${senderSection}

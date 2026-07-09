@@ -136,14 +136,15 @@ async function handleGenerate(payload) {
 
   const gen = ADAPTERS[provider] || openaiGenerate;
   const mode = payload.mode || 'messages';
+  const outreachMode = payload.outreachMode || settings.outreachMode || 'sell';
   const template =
     (settings.templates || []).find((t) => t.id === payload.templateId) || null;
   const channel = payload.channel || settings.defaultChannel || 'linkedin';
 
   const system =
     mode === 'callnotes'
-      ? buildCallNotesSystemPrompt(settings)
-      : buildSystemPrompt(settings, template, channel);
+      ? buildCallNotesSystemPrompt(settings, outreachMode)
+      : buildSystemPrompt(settings, template, channel, outreachMode);
   const user = buildUserPrompt(payload.scraped);
   const schema = mode === 'callnotes' ? CALL_NOTES_SCHEMA : VARIANTS_SCHEMA;
 
@@ -258,7 +259,7 @@ async function scrapeInBackgroundTab(url, file) {
   }
 }
 
-async function handleFindPeople({ tabId, companyUrl }) {
+async function handleFindPeople({ tabId, companyUrl, mode }) {
   const m = (companyUrl || '').match(/linkedin\.com\/company\/([^/?#]+)/i);
   if (!m) throw new Error('This is not a LinkedIn company page.');
   const slug = m[1];
@@ -309,7 +310,11 @@ async function handleFindPeople({ tabId, companyUrl }) {
   const apiKey = settings.keys?.[provider] || '';
   if (apiKey) {
     try {
-      const { system, user } = buildPeopleRankPrompt(company, people);
+      const { system, user } = buildPeopleRankPrompt(
+        company,
+        people,
+        mode || settings.outreachMode || 'sell',
+      );
       const gen = ADAPTERS[provider] || openaiGenerate;
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 30000);
