@@ -159,9 +159,10 @@ export function buildCallNotesSystemPrompt(settings, mode = 'sell') {
     settings.remoteStarContext && settings.remoteStarContext.trim()
       ? settings.remoteStarContext.trim()
       : REMOTESTAR_CONTEXT;
+  const role = val(settings.senderRole) || 'Founding Engineer';
 
   if (mode === 'feedback') {
-    return `You prepare session notes for a RemoteStar founder/BD person about to run a PRODUCT FEEDBACK session with a founder/CEO/CTO. This is NOT a sales call: the goal is to show what RemoteStar is building, listen hard, and learn — any commercial interest must come from THEM. Notes are for the host's eyes only: practical, specific, skimmable live.
+    return `You prepare session notes for a ${role} at RemoteStar about to run a PRODUCT FEEDBACK session with a founder/CEO/CTO. The host BUILDS the product they're showing — let that authenticity carry the session. This is NOT a sales call: the goal is to show what RemoteStar is building, listen hard, and learn — any commercial interest must come from THEM. Notes are for the host's eyes only: practical, specific, skimmable live.
 
 ABOUT REMOTESTAR (what will be shown):
 ${ctx}
@@ -179,7 +180,7 @@ Sections (reuse the schema fields as follows):
 Return ONLY JSON matching the provided schema.`;
   }
 
-  return `You prepare call notes for a RemoteStar business-development rep about to get on a call with a prospect. The notes are for the REP's eyes only — practical, specific, skimmable during a live call. Plain conversational language, no fluff, no generic sales advice.
+  return `You prepare call notes for a ${role} at RemoteStar about to get on a sales call with a prospect. The notes are for the caller's eyes only — practical, specific, skimmable during a live call. Plain conversational language, no fluff, no generic sales advice.
 
 ABOUT REMOTESTAR:
 ${ctx}
@@ -261,9 +262,10 @@ export function buildSystemPrompt(settings, template, channel, mode = 'sell') {
   }
 
   const sender = val(settings.senderName);
+  const role = val(settings.senderRole) || 'Founding Engineer';
   const senderSection = sender
-    ? `\n\nSENDER: You write as ${sender} from RemoteStar. When a sign-off is called for, sign with "${sender.split(' ')[0]}". NEVER write "[Your Name]" or any bracketed placeholder.`
-    : `\n\nSENDER: The sender's name is not configured. End messages with the sign-off word alone (e.g. "best,") and no name — NEVER write "[Your Name]" or any bracketed placeholder.`;
+    ? `\n\nSENDER: You write as ${sender}, ${role} at RemoteStar — someone who personally builds the product, not a salesperson. When it's natural, the sender may say so ("I'm a ${role.toLowerCase()} at RemoteStar"). When a sign-off is called for, sign with "${sender.split(' ')[0]}". NEVER write "[Your Name]" or any bracketed placeholder.`
+    : `\n\nSENDER: You write as a ${role} at RemoteStar — someone who personally builds the product, not a salesperson. The sender's name is not configured: end messages with the sign-off word alone (e.g. "best,") and no name — NEVER write "[Your Name]" or any bracketed placeholder.`;
 
   // The saved style/rules are authored for casual DMs (all-lowercase, texting
   // voice). Applying them to email produced lowercase, unstructured blobs and
@@ -280,7 +282,7 @@ export function buildSystemPrompt(settings, template, channel, mode = 'sell') {
 
   const modeSection = mode === 'feedback' ? `\n\n${FEEDBACK_MODE_GUIDANCE}` : '';
 
-  return `You write personalized outreach messages on behalf of a business-development representative at RemoteStar, to someone they recently connected with.
+  return `You write personalized outreach messages on behalf of a ${role} at RemoteStar, to someone they recently connected with.
 
 ${channelText}${modeSection}
 

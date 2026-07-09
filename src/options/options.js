@@ -13,6 +13,7 @@ const el = {
   defaultChannel: $('defaultChannel'),
   emailDesign: $('emailDesign'),
   senderName: $('senderName'),
+  senderRole: $('senderRole'),
   ctaUrl: $('ctaUrl'),
   peopleKeywords: $('peopleKeywords'),
   globalRules: $('globalRules'),
@@ -152,11 +153,12 @@ $('import-settings-file').addEventListener('change', async (e) => {
       throw new Error('not a settings file');
     }
     const mine = await getSettings();
-    delete incoming.senderName; // keep the teammate's own signature name
-    await saveSettings({ ...incoming, senderName: mine.senderName });
+    delete incoming.senderName; // keep the teammate's own identity
+    delete incoming.senderRole;
+    await saveSettings({ ...incoming, senderName: mine.senderName, senderRole: mine.senderRole });
     await load(); // re-render the form with imported values
     el.status.className = 'status ok';
-    el.status.textContent = 'Settings imported — set "Your name" and save.';
+    el.status.textContent = 'Settings imported — set "Your name" and "Your role", then save.';
   } catch {
     el.status.className = 'status error';
     el.status.textContent = 'Import failed — that does not look like a settings export.';
@@ -181,6 +183,7 @@ async function load() {
   el.defaultChannel.value = s.defaultChannel || 'linkedin';
   el.emailDesign.value = s.emailDesign || 'clean';
   el.senderName.value = s.senderName || '';
+  el.senderRole.value = s.senderRole || 'Founding Engineer';
   el.ctaUrl.value = s.ctaUrl || '';
   el.peopleKeywords.value = (s.peopleKeywords || []).join('\n');
   el.globalRules.value = s.globalRules;
@@ -210,6 +213,7 @@ $('save').addEventListener('click', async () => {
     defaultChannel: el.defaultChannel.value,
     emailDesign: el.emailDesign.value,
     senderName: el.senderName.value.trim(),
+    senderRole: el.senderRole.value.trim() || 'Founding Engineer',
     ctaUrl: el.ctaUrl.value.trim(),
     peopleKeywords: el.peopleKeywords.value
       .split('\n')

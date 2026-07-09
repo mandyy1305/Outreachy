@@ -66,6 +66,7 @@ export const DEFAULT_SETTINGS = {
   // Email appearance (see lib/email-designs.js).
   emailDesign: 'plain', // 'plain' (natural) | 'clean' | 'card' (designed)
   senderName: '', // shown in the styled email signature
+  senderRole: 'Founding Engineer', // who the messages speak as ("<role> at RemoteStar")
   ctaUrl: '', // booking link for the "card" design's button (e.g. Calendly)
   // Outreach mode: 'sell' pitches the service; 'feedback' asks founders/CEOs
   // for product feedback (soft-sell — the showcase happens by itself).
